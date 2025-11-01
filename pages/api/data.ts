@@ -4,14 +4,12 @@ import { google } from 'googleapis';
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
-// our sheets
+// 3 real sheets
 const RAW_SERVICE_RANGE = `'Raw Data - Service'!A:Z`;
 const ALL_MAPPING_RANGE = `'All Mapping'!A:T`;
-// we don't know exact name, so we'll request both:
-const MANAGER_TARGETS_RANGE_1 = `'Manager Targets'!A:E`; // plural
-const MANAGER_TARGETS_RANGE_2 = `'Manager target'!A:E`;  // what you wrote
+const MANAGER_TARGETS_RANGE = `'Manager Targets'!A:E`;
 
-// SM list you gave
+// SMs to show
 const SM_NAMES = [
   'Manpreet Kaur Sidhu',
   'Manpreet Kaur Dhillon',
@@ -20,27 +18,7 @@ const SM_NAMES = [
   'Santdeep Singh',
 ];
 
-// columns in All Mapping (A:T)
-// A Emp Code
-// B Employee Name
-// C Department
-// D Designation
-// E ACC
-// F FLAP
-// G Assistant Manager
-// H Manager
-// I EM
-// J FLAP Corrected
-// K AM Corrected
-// L Manager Corrected
-// M Senior Manager
-// N Sale Tar.
-// O Yesterday
-// P WTD
-// Q MTD
-// R Yesterday (2nd)
-// S WTD (2nd)
-// T MTD (2nd)
+// columns in All Mapping
 const ALL_MAPPING_COLS = {
   seniorManager: 12,      // M
   service_yesterday: 14,  // O
@@ -53,17 +31,11 @@ function buildSmDashboard(
   managerTargetsSheet: string[][],
   dateKey: 'yesterday' | 'wtd' | 'mtd'
 ) {
-  // managerTargetsSheet structure (your description):
-  // A: SM
-  // B: Service Target
-  // C: Service Tgt Corrected  <-- we want this (like VLOOKUP col 3)
-  // D: ACC
-  // E: Commerce Tgt
-
-  // skip header if present
+  // manager targets: A:SM, B:Service Target, C:Service Tgt Corrected, D:ACC, E:Commerce Tgt
   const mgrBody =
     managerTargetsSheet.length > 0 ? managerTargetsSheet.slice(1) : [];
 
+  // make lookup: name -> monthTargetRaw
   const mgrMap: Record<string, number> = {};
   mgrBody.forEach((row) => {
     const name = (row[0] || '').trim();
@@ -73,16 +45,15 @@ function buildSmDashboard(
     }
   });
 
-  // split allMapping
-  const [allMapHeader, ...allMapRows] = allMappingSheet;
+  const [_, ...allMapRows] = allMappingSheet;
 
-  // pick the right service column
+  // pick correct service column
   let colIdx = ALL_MAPPING_COLS.service_yesterday;
   if (dateKey === 'wtd') colIdx = ALL_MAPPING_COLS.service_wtd;
   if (dateKey === 'mtd') colIdx = ALL_MAPPING_COLS.service_mtd;
 
-  const results = SM_NAMES.map((smName) => {
-    // 1) ACHIEVED = SUMIFS( All Mapping!O:O , All Mapping!M:M , smName ) / 100000
+  return SM_NAMES.map((smName) => {
+    // 1) ACHIEVED = SUMIFS('All Mapping'!O:O, 'All Mapping'!M:M, smName)/100000
     let achievedRaw = 0;
     allMapRows.forEach((row) => {
       const rowSm = (row[ALL_MAPPING_COLS.seniorManager] || '').trim();
@@ -93,19 +64,19 @@ function buildSmDashboard(
     });
     const achieved = achievedRaw / 100000;
 
-    // 2) MONTH TARGET = VLOOKUP(name, ManagerTargets!A:C,3,0) / 100000
+    // 2) MONTH TARGET = VLOOKUP(smName, 'Manager Targets'!A:C, 3, 0)/100000
     const monthTargetRaw = mgrMap[smName] || 0;
     const monthTarget = monthTargetRaw / 100000;
 
-    // 3) DAILY TARGET = L8 / 26
+    // 3) DAILY TARGET = monthTarget / 26
     const dailyTarget = monthTarget / 26;
 
-    // what to show as Target depends on date
+    // which target to show
     let targetToShow = dailyTarget; // yesterday
     if (dateKey === 'mtd') {
       targetToShow = monthTarget;
     } else if (dateKey === 'wtd') {
-      // quick approx — you can tell me real logic later
+      // rough week split; we can refine
       targetToShow = monthTarget / 4;
     }
 
@@ -120,8 +91,6 @@ function buildSmDashboard(
       rawMonthTarget: monthTarget,
     };
   });
-
-  return results;
 }
 
 export default async function handler(
@@ -165,36 +134,22 @@ export default async function handler(
 
     const sheets = google.sheets({ version: 'v4', auth: jwt });
 
-    // we ask for 4 ranges — some may be empty
+    // just 3 ranges now
     const resp = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: SHEET_ID,
-      ranges: [
-        RAW_SERVICE_RANGE,
-        ALL_MAPPING_RANGE,
-        MANAGER_TARGETS_RANGE_1,
-        MANAGER_TARGETS_RANGE_2,
-      ],
+      ranges: [RAW_SERVICE_RANGE, ALL_MAPPING_RANGE, MANAGER_TARGETS_RANGE],
     });
 
     const vr = resp.data.valueRanges || [];
-
     const rawServiceSheet = vr[0]?.values || [];
     const allMappingSheet = vr[1]?.values || [];
+    const managerTargetsSheet = vr[2]?.values || [];
 
-    // pick whichever manager targets sheet is non-empty
-    const managerTargetsSheet =
-      (vr[2]?.values && vr[2].values.length > 0
-        ? vr[2].values
-        : vr[3]?.values && vr[3].values.length > 0
-          ? vr[3].values
-          : []) || [];
-
-    // which date?
+    // date param
     const dateParam = (req.query.date as string) || 'yesterday';
     const dateKey: 'yesterday' | 'wtd' | 'mtd' =
       dateParam === 'wtd' || dateParam === 'mtd' ? (dateParam as any) : 'yesterday';
 
-    // build SM dashboard (will never crash even if managerTargetsSheet is empty)
     const smDashboard = buildSmDashboard(
       allMappingSheet,
       managerTargetsSheet,
@@ -218,13 +173,11 @@ export default async function handler(
         rows: limitedRaw,
         totalRows: rawRows.length,
       },
-      // 👇 this is what your frontend is trying to render
       smDashboard,
       debug: {
-        rawServiceRangeRows: rawServiceSheet.length,
+        rawServiceRows: rawServiceSheet.length,
         allMappingRows: allMappingSheet.length,
-        managerTargets1Rows: vr[2]?.values?.length || 0,
-        managerTargets2Rows: vr[3]?.values?.length || 0,
+        managerTargetsRows: managerTargetsSheet.length,
       },
     });
   } catch (err: any) {
