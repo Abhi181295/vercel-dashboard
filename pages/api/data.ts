@@ -3,8 +3,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { google } from 'googleapis';
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
-// change to your sheet/tab range
-const SHEET_RANGE = 'Sheet1!A1:Z2000';
+// use your real sheet/tab name
+const SHEET_RANGE = `'Raw Data - Service'!A:Z`;
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,19 +12,19 @@ export default async function handler(
 ) {
   try {
     if (!SHEET_ID) {
-      return res.status(500).json({ ok: false, error: 'GOOGLE_SHEET_ID not set' });
+      return res.status(500).json({ ok: false, error: 'GOOGLE_SHEET_ID env not set' });
     }
 
     const raw = process.env.GOOGLE_SERVICE_ACCOUNT;
     if (!raw) {
       return res
         .status(500)
-        .json({ ok: false, error: 'GOOGLE_SERVICE_ACCOUNT not set' });
+        .json({ ok: false, error: 'GOOGLE_SERVICE_ACCOUNT env not set' });
     }
 
     const creds = JSON.parse(raw);
     if (creds.private_key) {
-      // fix \n
+      // fix \n from env
       creds.private_key = creds.private_key.replace(/\\n/g, '\n');
     }
 
@@ -54,13 +54,15 @@ export default async function handler(
       return obj;
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       ok: true,
       rows: data,
       fetchedAt: new Date().toISOString(),
     });
   } catch (err: any) {
-    console.error('API ERROR /pages/api/data.ts', err);
-    res.status(500).json({ ok: false, error: err?.message ?? 'unknown' });
+    console.error('API ERROR /api/data', err);
+    return res
+      .status(500)
+      .json({ ok: false, error: err?.message ?? 'unknown' });
   }
 }
