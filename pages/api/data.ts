@@ -4,12 +4,12 @@ import { google } from 'googleapis';
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
-// 3 real sheets
+// sheet ranges
 const RAW_SERVICE_RANGE = `'Raw Data - Service'!A:Z`;
 const ALL_MAPPING_RANGE = `'All Mapping'!A:T`;
 const MANAGER_TARGETS_RANGE = `'Manager Targets'!A:E`;
 
-// SMs to show
+// SMs you want
 const SM_NAMES = [
   'Manpreet Kaur Sidhu',
   'Manpreet Kaur Dhillon',
@@ -18,79 +18,106 @@ const SM_NAMES = [
   'Santdeep Singh',
 ];
 
-// columns in All Mapping
+// column indexes in All Mapping (0-based)
 const ALL_MAPPING_COLS = {
   seniorManager: 12,      // M
-  service_yesterday: 14,  // O
-  service_wtd: 15,        // P
-  service_mtd: 16,        // Q
+  yesterday: 14,          // O
+  wtd: 15,                // P
+  mtd: 16,                // Q
 };
 
+// helpers
+function normName(s: any): string {
+  return (s ?? '').toString().trim().toLowerCase();
+}
+
+function toNum(x: any): number {
+  if (x == null) return 0;
+  const s = x.toString().replace(/,/g, '').trim();
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function lakhs(n: number): number {
+  // divide by 1,00,000 and show 1 decimal
+  return Number((n / 100000).toFixed(1));
+}
+
 function buildSmDashboard(
-  allMappingSheet: string[][],
-  managerTargetsSheet: string[][],
+  allMapping: string[][],
+  managerTargets: string[][],
   dateKey: 'yesterday' | 'wtd' | 'mtd'
 ) {
-  // manager targets: A:SM, B:Service Target, C:Service Tgt Corrected, D:ACC, E:Commerce Tgt
-  const mgrBody =
-    managerTargetsSheet.length > 0 ? managerTargetsSheet.slice(1) : [];
+  // --- 1) build lookup from Manager Targets ---
+  // structure:
+  // A: SM
+  // B: Service Target
+  // C: Service Tgt Corrected  <-- use THIS
+  const mgrBody = managerTargets.length > 0 ? managerTargets.slice(1) : [];
 
-  // make lookup: name -> monthTargetRaw
   const mgrMap: Record<string, number> = {};
-  mgrBody.forEach((row) => {
-    const name = (row[0] || '').trim();
-    const serviceTgtCorrected = row[2] ? Number(row[2]) : 0;
-    if (name) {
-      mgrMap[name] = serviceTgtCorrected; // still in rupees
+  for (const row of mgrBody) {
+    const nameNorm = normName(row[0]);
+    const serviceTgtCorrected = toNum(row[2]); // col C
+    if (nameNorm) {
+      mgrMap[nameNorm] = serviceTgtCorrected; // still in rupees
     }
-  });
+  }
 
-  const [_, ...allMapRows] = allMappingSheet;
+  // --- 2) pick the correct column in All Mapping ---
+  let colIdx = ALL_MAPPING_COLS.yesterday;
+  if (dateKey === 'wtd') colIdx = ALL_MAPPING_COLS.wtd;
+  if (dateKey === 'mtd') colIdx = ALL_MAPPING_COLS.mtd;
 
-  // pick correct service column
-  let colIdx = ALL_MAPPING_COLS.service_yesterday;
-  if (dateKey === 'wtd') colIdx = ALL_MAPPING_COLS.service_wtd;
-  if (dateKey === 'mtd') colIdx = ALL_MAPPING_COLS.service_mtd;
+  // skip header in All Mapping
+  const [, ...allRows] = allMapping;
 
-  return SM_NAMES.map((smName) => {
-    // 1) ACHIEVED = SUMIFS('All Mapping'!O:O, 'All Mapping'!M:M, smName)/100000
+  // --- 3) build rows for each SM ---
+  const out = SM_NAMES.map((sm) => {
+    const smNorm = normName(sm);
+
+    // ACHIEVED = SUMIFS(All Mapping!O:O, All Mapping!M:M, SM) / 100000
     let achievedRaw = 0;
-    allMapRows.forEach((row) => {
-      const rowSm = (row[ALL_MAPPING_COLS.seniorManager] || '').trim();
-      if (rowSm === smName) {
-        const val = row[colIdx] ? Number(row[colIdx]) : 0;
+    for (const row of allRows) {
+      const rowSmNorm = normName(row[ALL_MAPPING_COLS.seniorManager]);
+      if (rowSmNorm === smNorm) {
+        const val = toNum(row[colIdx]);
         achievedRaw += val;
       }
-    });
-    const achieved = achievedRaw / 100000;
+    }
+    const achievedLakhs = lakhs(achievedRaw);
 
-    // 2) MONTH TARGET = VLOOKUP(smName, 'Manager Targets'!A:C, 3, 0)/100000
-    const monthTargetRaw = mgrMap[smName] || 0;
-    const monthTarget = monthTargetRaw / 100000;
+    // MONTH TARGET = VLOOKUP(SM, 'Manager Targets'!A:C, 3, 0) / 100000
+    const monthTargetRaw = mgrMap[smNorm] ?? 0;
+    const monthTargetLakhs = lakhs(monthTargetRaw);
 
-    // 3) DAILY TARGET = monthTarget / 26
-    const dailyTarget = monthTarget / 26;
+    // DAILY TARGET = monthTarget / 26
+    const dailyTargetLakhs = Number((monthTargetLakhs / 26).toFixed(1));
 
     // which target to show
-    let targetToShow = dailyTarget; // yesterday
+    let targetToShow = dailyTargetLakhs; // yesterday
     if (dateKey === 'mtd') {
-      targetToShow = monthTarget;
+      targetToShow = monthTargetLakhs;
     } else if (dateKey === 'wtd') {
-      // rough week split; we can refine
-      targetToShow = monthTarget / 4;
+      // you can change this later to actual week logic
+      targetToShow = Number((monthTargetLakhs / 4).toFixed(1));
     }
 
     const achievedPct =
-      targetToShow > 0 ? (achieved / targetToShow) * 100 : 0;
+      targetToShow > 0
+        ? Number(((achievedLakhs / targetToShow) * 100).toFixed(1))
+        : 0;
 
     return {
-      name: smName,
-      achieved,
-      target: Number(targetToShow.toFixed(4)),
-      achievedPct: Number(achievedPct.toFixed(1)),
-      rawMonthTarget: monthTarget,
+      name: sm,
+      achieved: achievedLakhs,
+      target: targetToShow,
+      achievedPct,
+      monthTarget: monthTargetLakhs,
     };
   });
+
+  return out;
 }
 
 export default async function handler(
@@ -134,7 +161,7 @@ export default async function handler(
 
     const sheets = google.sheets({ version: 'v4', auth: jwt });
 
-    // just 3 ranges now
+    // get all 3 sheets in one call
     const resp = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: SHEET_ID,
       ranges: [RAW_SERVICE_RANGE, ALL_MAPPING_RANGE, MANAGER_TARGETS_RANGE],
@@ -156,7 +183,7 @@ export default async function handler(
       dateKey
     );
 
-    // limit raw service for UI
+    // raw service (limit for UI)
     const [, ...rawRows] = rawServiceSheet;
     const limitParam = req.query.limit ? Number(req.query.limit) : null;
     const limitedRaw =
@@ -175,7 +202,6 @@ export default async function handler(
       },
       smDashboard,
       debug: {
-        rawServiceRows: rawServiceSheet.length,
         allMappingRows: allMappingSheet.length,
         managerTargetsRows: managerTargetsSheet.length,
       },
