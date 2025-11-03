@@ -44,9 +44,9 @@ function normalizePrivateKey(raw: string): string {
   return k;
 }
 
-// ------------------ types for our response (unchanged) -------------------
+// ------------------ types for our response (adjusted) -------------------
 type Metric = { achieved: number; target: number; pct: number };
-type Block = { y: Metric; w: Metric; m: Metric };
+type Block = { y: Metric; w: Metric; m: Metric; target: number }; // Added target property here
 type Leaf = { id: string; name: string; role: 'AM' | 'FLAP'; service: Block; commerce: Block; };
 type Manager = { id: string; name: string; role: 'M'; service: Block; commerce: Block; children: Leaf[]; };
 type SM = { id: string; name: string; role: 'SM'; service: Block; commerce: Block; children: Manager[]; };
@@ -61,7 +61,7 @@ function num(x: any): number {
 function pct(a: number, t: number) { return t ? Math.round((a / t) * 100) : 0; }
 
 function mkBlock(): Block {
-  return { y: { achieved: 0, target: 0, pct: 0 }, w: { achieved: 0, target: 0, pct: 0 }, m: { achieved: 0, target: 0, pct: 0 } };
+  return { y: { achieved: 0, target: 0, pct: 0 }, w: { achieved: 0, target: 0, pct: 0 }, m: { achieved: 0, target: 0, pct: 0 }, target: 0 };
 }
 
 function add(b: Block, y: number, w: number, m: number, t: number) {
