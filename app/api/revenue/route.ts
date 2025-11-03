@@ -44,7 +44,7 @@ function normalizePrivateKey(raw: string): string {
   return k;
 }
 
-// ------------------ types for our response (unchanged) -------------------
+// ------------------ types for our response (adjusted) -------------------
 type Metric = { achieved: number; target: number; pct: number };
 type Block = { y: Metric; w: Metric; m: Metric; target: number }; // Added target property here
 type Leaf = { id: string; name: string; role: 'AM' | 'FLAP'; service: Block; commerce: Block; };
@@ -191,7 +191,7 @@ export async function GET() {
 
     const result = Array.from(smMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     return NextResponse.json({ ok: true, lastFetched: new Date().toISOString(), data: result });
-  } catch (err) {
+  } catch (err: any) { // Added type `any` for error to ensure TypeScript knows `message` property exists
     return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 });
   }
 }
