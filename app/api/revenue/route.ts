@@ -44,7 +44,7 @@ function normalizePrivateKey(raw: string): string {
   return k;
 }
 
-// ------------------ types for our response (adjusted) -------------------
+// ------------------ types for our response (unchanged) -------------------
 type Metric = { achieved: number; target: number; pct: number };
 type Block = { y: Metric; w: Metric; m: Metric; target: number }; // Added target property here
 type Leaf = { id: string; name: string; role: 'AM' | 'FLAP'; service: Block; commerce: Block; };
