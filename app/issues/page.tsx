@@ -1,3 +1,5 @@
+'use client';
+
 function metric(a: number, t: number, isSales: boolean = false) {
   const pct = t ? Math.round((a / t) * 100) : 0;
   if (isSales) {
@@ -1922,3 +1924,4 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
     </div>
   );
 }
+
