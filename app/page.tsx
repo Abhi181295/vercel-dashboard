@@ -572,7 +572,7 @@ function DashboardPage() {
   const [selectedSM, setSelectedSM] = useState<SM | null>(null);
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [revType, setRevType] = useState<'service' | 'commerce'>('service');
-  const [data, setData] = useState<SM[]>([]);
+  const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -647,10 +647,10 @@ function DashboardPage() {
         }
         
         const hierarchy = buildHierarchy(filteredData, managers, ams);
-        setData(hierarchy);
+        setData(hierarchy as any);
         
         if (hierarchy.length > 0) {
-          setSelectedSM(hierarchy[0]);
+          setSelectedSM(hierarchy[0] as any);
         }
       } catch (err) {
         console.error('Error loading data:', err);
