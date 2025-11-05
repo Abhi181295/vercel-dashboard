@@ -5,6 +5,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+export const revalidate = 300; // 5 minutes
+
 /** ============================================================================
  *  LIGHT CRM UI — Updated with color-coded percentages, improved headers, and drill-down modal
  * ========================================================================== */
@@ -575,6 +577,7 @@ function DashboardPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false); // New state for refresh
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -621,47 +624,54 @@ function DashboardPage() {
     setTimeout(checkAuth, 100);
   }, [router]);
 
+  // Load data function that can be called independently
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch('/api/hierarchy');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+      
+      const { sms, managers, ams } = await response.json();
+      
+      // Filter data based on user role
+      let filteredData = sms;
+      if (userRole === 'sm') {
+        // For SM users, only show their own data
+        filteredData = sms.filter((sm: UserWithTargets) => 
+          sm.name.toLowerCase() === userName.toLowerCase()
+        );
+      }
+      
+      const hierarchy = buildHierarchy(filteredData, managers, ams);
+      setData(hierarchy as any);
+      
+      if (hierarchy.length > 0) {
+        setSelectedSM(hierarchy[0] as any);
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load data from Google Sheets. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch data on component mount after authentication
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    async function loadData() {
-      try {
-        setLoading(true);
-        
-        const response = await fetch('/api/hierarchy');
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch data');
-        }
-        
-        const { sms, managers, ams } = await response.json();
-        
-        // Filter data based on user role
-        let filteredData = sms;
-        if (userRole === 'sm') {
-          // For SM users, only show their own data
-          filteredData = sms.filter((sm: UserWithTargets) => 
-            sm.name.toLowerCase() === userName.toLowerCase()
-          );
-        }
-        
-        const hierarchy = buildHierarchy(filteredData, managers, ams);
-        setData(hierarchy as any);
-        
-        if (hierarchy.length > 0) {
-          setSelectedSM(hierarchy[0] as any);
-        }
-      } catch (err) {
-        console.error('Error loading data:', err);
-        setError('Failed to load data from Google Sheets. Please check your connection and try again.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadData();
   }, [isAuthenticated, userRole, userName]);
+
+  // Improved refresh function
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   const handleLogout = () => {
     // Clear all auth cookies
@@ -736,7 +746,7 @@ function DashboardPage() {
     return null;
   }
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
@@ -882,9 +892,10 @@ function DashboardPage() {
             <button 
               className="btn" 
               title="Refresh" 
-              onClick={() => window.location.reload()}
+              onClick={handleRefresh}
+              disabled={refreshing}
             >
-              ⟲ Refresh
+              {refreshing ? 'Refreshing...' : '⟲ Refresh'}
             </button>
             <button className="btn" title="Export CSV">⬇ Export CSV</button>
             <button className="btn" title="Show Filters">⚲ Show Filters</button>
@@ -1314,7 +1325,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .subtitle{margin:0;color:var(--muted)}
 .actions{display:flex;gap:8px}
 .btn{background:#0f172a;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer}
-.btn:hover{opacity:.9}
+.btn:hover:not(:disabled){opacity:.9}
+.btn:disabled{opacity:0.6;cursor:not-allowed;}
 .btn-secondary{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
 .btn-secondary:hover{background:#f8fafc}
 

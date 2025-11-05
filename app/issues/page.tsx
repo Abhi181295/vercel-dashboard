@@ -5,6 +5,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+export const revalidate = 300; // 5 minutes
+
 // Reuse existing types from main dashboard
 type UserWithTargets = {
   id: string;
@@ -180,6 +182,7 @@ export default function IssuesPage() {
   const [data, setData] = useState<SM[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false); // New state for refresh
   
   // State for issue details panel
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -246,63 +249,64 @@ export default function IssuesPage() {
     setTimeout(checkAuth, 100);
   }, [router]);
 
+  // Load data function that can be called independently
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      const [hierarchyResponse, dietitianGapsResponse] = await Promise.all([
+        fetch('/api/hierarchy'),
+        fetch('/api/dietitian-gaps')
+      ]);
+      
+      if (!hierarchyResponse.ok) {
+        throw new Error('Failed to fetch hierarchy data');
+      }
+      
+      const { sms, managers, ams } = await hierarchyResponse.json();
+      
+      // Filter data based on user role
+      let filteredData = sms;
+      if (userRole === 'sm') {
+        filteredData = sms.filter((sm: UserWithTargets) => 
+          sm.name.toLowerCase() === userName.toLowerCase()
+        );
+      }
+      
+      // Build hierarchy similar to main dashboard
+      const hierarchy = buildHierarchy(filteredData, managers, ams);
+      
+      setData(hierarchy);
+      
+      if (hierarchy.length > 0) {
+        setSelectedSM(hierarchy[0]);
+      }
+
+      // Load dietitian gaps data
+      if (dietitianGapsResponse.ok) {
+        const gapsData = await dietitianGapsResponse.json();
+        setUnderperformingDietitians(gapsData.dietitianGaps || []);
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load data from Google Sheets. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch data on component mount after authentication
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    async function loadData() {
-      try {
-        setLoading(true);
-        
-        const [hierarchyResponse, dietitianGapsResponse] = await Promise.all([
-          fetch('/api/hierarchy'),
-          fetch('/api/dietitian-gaps')
-        ]);
-        
-        if (!hierarchyResponse.ok) {
-          throw new Error('Failed to fetch hierarchy data');
-        }
-        
-        const { sms, managers, ams } = await hierarchyResponse.json();
-        
-        // Filter data based on user role
-        let filteredData = sms;
-        if (userRole === 'sm') {
-          filteredData = sms.filter((sm: UserWithTargets) => 
-            sm.name.toLowerCase() === userName.toLowerCase()
-          );
-        }
-        
-        // Build hierarchy similar to main dashboard
-        const hierarchy = filteredData.map((sm: any) => ({
-          ...sm,
-          children: managers.filter((m: any) => m.smId === sm.id).map((manager: any) => ({
-            ...manager,
-            children: ams.filter((am: any) => am.managerId === manager.id || am.smId === sm.id)
-          }))
-        }));
-        
-        setData(hierarchy);
-        
-        if (hierarchy.length > 0) {
-          setSelectedSM(hierarchy[0]);
-        }
-
-        // Load dietitian gaps data
-        if (dietitianGapsResponse.ok) {
-          const gapsData = await dietitianGapsResponse.json();
-          setUnderperformingDietitians(gapsData.dietitianGaps || []);
-        }
-      } catch (err) {
-        console.error('Error loading data:', err);
-        setError('Failed to load data from Google Sheets. Please check your connection and try again.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadData();
   }, [isAuthenticated, userRole, userName]);
+
+  // Improved refresh function
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   // Calculate underperforming AMs (≤ 25% of daily target)
   const calculateUnderperformingAMs = useMemo(() => {
@@ -409,7 +413,7 @@ export default function IssuesPage() {
     return null;
   }
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
@@ -546,9 +550,10 @@ export default function IssuesPage() {
             <button 
               className="btn" 
               title="Refresh" 
-              onClick={() => window.location.reload()}
+              onClick={handleRefresh}
+              disabled={refreshing}
             >
-              ⟲ Refresh
+              {refreshing ? 'Refreshing...' : '⟲ Refresh'}
             </button>
           </div>
         </header>
@@ -785,7 +790,8 @@ export default function IssuesPage() {
         .subtitle{margin:0;color:var(--muted)}
         .actions{display:flex;gap:8px}
         .btn{background:#0f172a;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer}
-        .btn:hover{opacity:.9}
+        .btn:hover:not(:disabled){opacity:.9}
+        .btn:disabled{opacity:0.6;cursor:not-allowed;}
 
         .selection-row{display:flex;gap:20px;align-items:end}
         .select-group{display:flex;flex-direction:column;gap:6px}
@@ -869,7 +875,117 @@ export default function IssuesPage() {
   );
 }
 
-// Issue Details Panel Component - UPDATED WITH IMPROVED DIETITIANS STYLING
+// Hierarchy building function (copied from main dashboard)
+function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams: UserWithTargets[]) {
+  const smMap = new Map(sms.map(sm => [sm.id, {
+    ...sm,
+    children: [] as any[],
+    metrics: {
+      service: {
+        y: metric(sm.achieved?.service.y || 0, sm.scaledTargets?.service.y || sm.targets.service, true),
+        w: metric(sm.achieved?.service.w || 0, sm.scaledTargets?.service.w || sm.targets.service, true),
+        m: metric(sm.achieved?.service.m || 0, sm.scaledTargets?.service.m || sm.targets.service, true),
+      },
+      commerce: {
+        y: metric(sm.achieved?.commerce.y || 0, sm.scaledTargets?.commerce.y || sm.targets.commerce, false),
+        w: metric(sm.achieved?.commerce.w || 0, sm.scaledTargets?.commerce.w || sm.targets.commerce, false),
+        m: metric(sm.achieved?.commerce.m || 0, sm.scaledTargets?.commerce.m || sm.targets.commerce, false),
+      },
+    }
+  }]));
+
+  const managerMap = new Map(managers.map(manager => [manager.id, {
+    ...manager,
+    children: [] as any[],
+    metrics: {
+      service: {
+        y: metric(manager.achieved?.service.y || 0, manager.scaledTargets?.service.y || manager.targets.service, true),
+        w: metric(manager.achieved?.service.w || 0, manager.scaledTargets?.service.w || manager.targets.service, true),
+        m: metric(manager.achieved?.service.m || 0, manager.scaledTargets?.service.m || manager.targets.service, true),
+      },
+      commerce: {
+        y: metric(manager.achieved?.commerce.y || 0, manager.scaledTargets?.commerce.y || manager.targets.commerce, false),
+        w: metric(manager.achieved?.commerce.w || 0, manager.scaledTargets?.commerce.w || manager.targets.commerce, false),
+        m: metric(manager.achieved?.commerce.m || 0, manager.scaledTargets?.commerce.m || manager.targets.commerce, false),
+      },
+    }
+  }]));
+
+  // Assign managers to SMs
+  managers.forEach(manager => {
+    if (manager.smId && smMap.has(manager.smId)) {
+      const sm = smMap.get(manager.smId)!;
+      const managerWithMetrics = managerMap.get(manager.id)!;
+      sm.children.push(managerWithMetrics);
+    }
+  });
+
+  // Assign AMs to Managers or directly to SMs if no manager
+  ams.forEach(am => {
+    if (am.managerId && managerMap.has(am.managerId)) {
+      // AM has a manager
+      const manager = managerMap.get(am.managerId)!;
+      manager.children.push({
+        ...am,
+        metrics: {
+          service: {
+            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
+            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
+            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
+          },
+          commerce: {
+            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
+            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
+            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
+          },
+        }
+      });
+    } else if (am.smId && smMap.has(am.smId)) {
+      // AM reports directly to SM (no manager)
+      const sm = smMap.get(am.smId)!;
+      const virtualManagerId = `virtual-m-${am.smId}`;
+      if (!managerMap.has(virtualManagerId)) {
+        const virtualManager: any = {
+          id: virtualManagerId,
+          name: 'Direct Reports',
+          role: 'M',
+          smId: am.smId,
+          children: [],
+          targets: { service: 0, commerce: 0 },
+          scaledTargets: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
+          achieved: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
+          metrics: {
+            service: { y: metric(0, 0, true), w: metric(0, 0, true), m: metric(0, 0, true) },
+            commerce: { y: metric(0, 0, false), w: metric(0, 0, false), m: metric(0, 0, false) }
+          }
+        };
+        managerMap.set(virtualManagerId, virtualManager);
+        sm.children.push(virtualManager);
+      }
+      const virtualManager = managerMap.get(virtualManagerId)!;
+      virtualManager.children.push({
+        ...am,
+        metrics: {
+          service: {
+            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
+            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
+            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
+          },
+          commerce: {
+            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
+            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
+            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
+          },
+        }
+      });
+    }
+  });
+
+  // Convert to array
+  return Array.from(smMap.values());
+}
+
+// Issue Details Panel Component
 function IssueDetailsPanel({ 
   isOpen, 
   onClose, 

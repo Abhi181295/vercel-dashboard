@@ -3,6 +3,8 @@
 import { NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
 
+export const revalidate = 300; // 5 minutes
+
 const serviceAccount = process.env.GOOGLE_SERVICE_ACCOUNT;
 if (!serviceAccount) {
   throw new Error('GOOGLE_SERVICE_ACCOUNT environment variable is required');
