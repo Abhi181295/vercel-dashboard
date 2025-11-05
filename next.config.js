@@ -1,6 +1,18 @@
-/** @type {import('next').NextConfig} */
+﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Remove the experimental.appDir since App Router is now default
+  experimental: {
+    // Cron jobs configuration
+  },
+  async headers() {
+    return [
+      {
+        source: "/api/cron/refresh-data",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+        ],
+      },
+    ];
+  }
 }
 
 module.exports = nextConfig
