@@ -1,125 +1,841 @@
+// app/page.tsx
+
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-/** ======================================================================
- * Live hierarchy from /api/revenue
- * - Service / Commerce toggle
- * - Yesterday / WTD / MTD
- * - SM → Manager → AM/FLAP collapsible
- * UI: clean light CRM (sidebar + sticky header)
- * ====================================================================== */
+/** ============================================================================
+ *  LIGHT CRM UI — Updated with color-coded percentages, improved headers, and drill-down modal
+ * ========================================================================== */
+ 
+ interface FunnelData {
+  teamSize: number;
+  rawTallies: {
+    ytd: {
+      calls: number;
+      connected: number;
+      talktime: number;
+      leads: number;
+      totalLinks: number;
+      salesLinks: number;
+      conv: number;
+      salesConv: number;
+    };
+    wtd: {
+      calls: number;
+      connected: number;
+      talktime: number;
+      leads: number;
+      totalLinks: number;
+      salesLinks: number;
+      conv: number;
+      salesConv: number;
+    };
+    mtd: {
+      calls: number;
+      connected: number;
+      talktime: number;
+      leads: number;
+      totalLinks: number;
+      salesLinks: number;
+      conv: number;
+      salesConv: number;
+    };
+  };
+  metrics: {
+    ytd: {
+      callsPerDtPerDay: number;
+      connectivity: number;
+      ttPerConnectedCall: number;
+      leadsPerDtPerDay: number;
+      leadVsConnected: number;
+      mightPay: number;
+      convPercent: number;
+      salesTeamConv: number;
+    };
+    wtd: {
+      callsPerDtPerDay: number;
+      connectivity: number;
+      ttPerConnectedCall: number;
+      leadsPerDtPerDay: number;
+      leadVsConnected: number;
+      mightPay: number;
+      convPercent: number;
+      salesTeamConv: number;
+    };
+    mtd: {
+      callsPerDtPerDay: number;
+      connectivity: number;
+      ttPerConnectedCall: number;
+      leadsPerDtPerDay: number;
+      leadVsConnected: number;
+      mightPay: number;
+      convPercent: number;
+      salesTeamConv: number;
+    };
+  };
+}
 
 type Metric = { achieved: number; target: number; pct: number };
 type Block = { y: Metric; w: Metric; m: Metric };
+type RevenueMetrics = {
+  service: Block;
+  commerce: Block;
+};
+
+type UserWithTargets = {
+  id: string;
+  name: string;
+  role: 'SM' | 'M' | 'AM' | 'FLAP';
+  targets: {
+    service: number;
+    commerce: number;
+  };
+  scaledTargets?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
+  achieved?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
+  managerId?: string;
+  smId?: string;
+};
 
 type Leaf = {
   id: string;
   name: string;
   role: 'AM' | 'FLAP';
-  service: Block;
-  commerce: Block;
+  metrics: RevenueMetrics;
+  managerId?: string;
+  smId?: string;
+  targets: {
+    service: number;
+    commerce: number;
+  };
+  scaledTargets?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
+  achieved?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
 };
 
 type Manager = {
   id: string;
   name: string;
   role: 'M';
-  service: Block;
-  commerce: Block;
+  metrics: RevenueMetrics;
   children: Leaf[];
+  smId?: string;
+  targets: {
+    service: number;
+    commerce: number;
+  };
+  scaledTargets?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
+  achieved?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
 };
 
 type SM = {
   id: string;
   name: string;
   role: 'SM';
-  service: Block;
-  commerce: Block;
+  metrics: RevenueMetrics;
   children: Manager[];
+  targets: {
+    service: number;
+    commerce: number;
+  };
+  scaledTargets?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
+  achieved?: {
+    service: {
+      y: number;
+      w: number;
+      m: number;
+    };
+    commerce: {
+      y: number;
+      w: number;
+      m: number;
+    };
+  };
 };
+
+function pct(a: number, t: number) {
+  return t ? Math.round((a / t) * 100) : 0;
+}
 
 function fmt(n: number) {
   return n.toLocaleString('en-IN');
 }
 
-export default function Page() {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Fitelo SM Dashboard';
-  const [revType, setRevType] = useState<'service' | 'commerce'>('service');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [lastFetched, setLastFetched] = useState<string | null>(null);
-  const [data, setData] = useState<SM[]>([]);
+function fmtLakhs(n: number): string {
+  const valueInLakhs = n / 100000;
+  return valueInLakhs.toFixed(1);
+}
+
+function metric(a: number, t: number, isSales: boolean = false): Metric {
+  if (isSales) {
+    const aInLakhs = a / 100000;
+    const tInLakhs = t / 100000;
+    return { achieved: aInLakhs, target: tInLakhs, pct: pct(a, t) };
+  }
+  return { achieved: a, target: t, pct: pct(a, t) };
+}
+
+function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams: UserWithTargets[]) {
+  const smMap = new Map(sms.map(sm => [sm.id, {
+    ...sm,
+    children: [] as any[],
+    metrics: {
+      service: {
+        y: metric(sm.achieved?.service.y || 0, sm.scaledTargets?.service.y || sm.targets.service, true),
+        w: metric(sm.achieved?.service.w || 0, sm.scaledTargets?.service.w || sm.targets.service, true),
+        m: metric(sm.achieved?.service.m || 0, sm.scaledTargets?.service.m || sm.targets.service, true),
+      },
+      commerce: {
+        y: metric(sm.achieved?.commerce.y || 0, sm.scaledTargets?.commerce.y || sm.targets.commerce, false),
+        w: metric(sm.achieved?.commerce.w || 0, sm.scaledTargets?.commerce.w || sm.targets.commerce, false),
+        m: metric(sm.achieved?.commerce.m || 0, sm.scaledTargets?.commerce.m || sm.targets.commerce, false),
+      },
+    }
+  }]));
+
+  const managerMap = new Map(managers.map(manager => [manager.id, {
+    ...manager,
+    children: [] as any[],
+    metrics: {
+      service: {
+        y: metric(manager.achieved?.service.y || 0, manager.scaledTargets?.service.y || manager.targets.service, true),
+        w: metric(manager.achieved?.service.w || 0, manager.scaledTargets?.service.w || manager.targets.service, true),
+        m: metric(manager.achieved?.service.m || 0, manager.scaledTargets?.service.m || manager.targets.service, true),
+      },
+      commerce: {
+        y: metric(manager.achieved?.commerce.y || 0, manager.scaledTargets?.commerce.y || manager.targets.commerce, false),
+        w: metric(manager.achieved?.commerce.w || 0, manager.scaledTargets?.commerce.w || manager.targets.commerce, false),
+        m: metric(manager.achieved?.commerce.m || 0, manager.scaledTargets?.commerce.m || manager.targets.commerce, false),
+      },
+    }
+  }]));
+
+  // Assign managers to SMs
+  managers.forEach(manager => {
+    if (manager.smId && smMap.has(manager.smId)) {
+      const sm = smMap.get(manager.smId)!;
+      const managerWithMetrics = managerMap.get(manager.id)!;
+      sm.children.push(managerWithMetrics);
+    }
+  });
+
+  // Assign AMs to Managers or directly to SMs if no manager
+  ams.forEach(am => {
+    if (am.managerId && managerMap.has(am.managerId)) {
+      // AM has a manager
+      const manager = managerMap.get(am.managerId)!;
+      manager.children.push({
+        ...am,
+        metrics: {
+          service: {
+            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
+            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
+            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
+          },
+          commerce: {
+            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
+            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
+            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
+          },
+        }
+      });
+    } else if (am.smId && smMap.has(am.smId)) {
+      // AM reports directly to SM (no manager)
+      const sm = smMap.get(am.smId)!;
+      const virtualManagerId = `virtual-m-${am.smId}`;
+      if (!managerMap.has(virtualManagerId)) {
+        const virtualManager: any = {
+          id: virtualManagerId,
+          name: 'Direct Reports',
+          role: 'M',
+          smId: am.smId,
+          children: [],
+          targets: { service: 0, commerce: 0 },
+          scaledTargets: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
+          achieved: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
+          metrics: {
+            service: { y: metric(0, 0, true), w: metric(0, 0, true), m: metric(0, 0, true) },
+            commerce: { y: metric(0, 0, false), w: metric(0, 0, false), m: metric(0, 0, false) }
+          }
+        };
+        managerMap.set(virtualManagerId, virtualManager);
+        sm.children.push(virtualManager);
+      }
+      const virtualManager = managerMap.get(virtualManagerId)!;
+      virtualManager.children.push({
+        ...am,
+        metrics: {
+          service: {
+            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
+            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
+            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
+          },
+          commerce: {
+            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
+            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
+            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
+          },
+        }
+      });
+    }
+  });
+
+  // Convert to array
+  return Array.from(smMap.values());
+}
+
+// Modal Component
+function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
+  isOpen: boolean;
+  onClose: () => void;
+  userName: string;
+  userRole: string;
+  period: 'y' | 'w' | 'm';
+  revType: 'service' | 'commerce';
+}) {
+  const [activePeriod, setActivePeriod] = useState<'y' | 'w' | 'm'>(period);
+  const [funnelData, setFunnelData] = useState<FunnelData | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // fetch data
+  // Update active period when the period prop changes
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch('/api/revenue', { cache: 'no-store' });
-        const json = await res.json();
-        if (!cancelled) {
-          if (json.ok) {
-            setData(json.data || []);
-            setLastFetched(json.lastFetched || null);
-          } else {
-            setError(json.error || 'Failed to fetch');
-          }
-        }
-      } catch (e: any) {
-        if (!cancelled) setError(String(e?.message || e));
-      } finally {
-        if (!cancelled) setLoading(false);
+    setActivePeriod(period);
+  }, [period]);
+
+  // Fetch funnel data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchFunnelData();
+    }
+  }, [isOpen, userName, userRole]);
+
+  const fetchFunnelData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/funnel?name=${encodeURIComponent(userName)}&role=${userRole}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch funnel data');
       }
-    })();
-    return () => {
-      cancelled = true;
+      const data = await response.json();
+      setFunnelData(data);
+    } catch (err) {
+      console.error('Error fetching funnel data:', err);
+      setError('Failed to load detailed metrics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const periodLabels = {
+    y: 'Yesterday',
+    w: 'WTD (Week to Date)',
+    m: 'MTD (Month to Date)'
+  };
+
+  const periodMap = {
+    y: 'ytd',
+    w: 'wtd', 
+    m: 'mtd'
+  } as const;
+
+  const currentPeriod = periodMap[activePeriod];
+  const rawData = funnelData?.rawTallies?.[currentPeriod];
+  const metricsData = funnelData?.metrics?.[currentPeriod];
+
+  const formatNumber = (num: number) => {
+    if (num === 0) return '-';
+    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
+  };
+
+  const formatPercentage = (num: number) => {
+    if (num === 0) return '-';
+    return `${(num * 100).toFixed(1)}%`;
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Funnel and Key Metrics</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-subheader">
+          <div className="user-info-modal">
+            <strong>{userName}</strong> • {userRole} • {revType === 'service' ? 'Service Revenue' : 'Commerce Revenue'}
+            {funnelData && <span> • Team Size: {funnelData.teamSize}</span>}
+          </div>
+        </div>
+
+        <div className="period-selector">
+          <button
+            className={`period-btn ${activePeriod === 'y' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('y')}
+          >
+            Yesterday
+          </button>
+          <button
+            className={`period-btn ${activePeriod === 'w' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('w')}
+          >
+            WTD
+          </button>
+          <button
+            className={`period-btn ${activePeriod === 'm' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('m')}
+          >
+            MTD
+          </button>
+        </div>
+
+        {loading && (
+          <div className="modal-loading">
+            <div className="loading">Loading funnel data...</div>
+          </div>
+        )}
+
+        {error && (
+          <div className="modal-error">
+            <div className="error">{error}</div>
+            <button className="btn" onClick={fetchFunnelData} style={{ marginTop: '16px' }}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        {funnelData && !loading && (
+          <>
+            <div className="modal-section">
+              <h3>Funnel Metrics - {periodLabels[activePeriod]}</h3>
+              <div className="metrics-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Team Size</th>
+                      <th>Calls</th>
+                      <th>Connected</th>
+                      <th>Talktime (hrs)</th>
+                      <th>Leads</th>
+                      <th>Total Links</th>
+                      <th>Sales Links</th>
+                      <th>Conv</th>
+                      <th>Sales Conv</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>{funnelData.teamSize}</td>
+                      <td>{formatNumber(rawData?.calls || 0)}</td>
+                      <td>{formatNumber(rawData?.connected || 0)}</td>
+                      <td>{formatNumber(rawData?.talktime || 0)}</td>
+                      <td>{formatNumber(rawData?.leads || 0)}</td>
+                      <td>{formatNumber(rawData?.totalLinks || 0)}</td>
+                      <td>{formatNumber(rawData?.salesLinks || 0)}</td>
+                      <td>{formatNumber(rawData?.conv || 0)}</td>
+                      <td>{formatNumber(rawData?.salesConv || 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="modal-section">
+              <h3>Performance Metrics - {periodLabels[activePeriod]}</h3>
+              <div className="metrics-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Call per Dt. per day</th>
+                      <th>Connectivity %</th>
+                      <th>TT per connected call (min)</th>
+                      <th>Leads per Dt. per day</th>
+                      <th>Lead % vs Connected Call</th>
+                      <th>Might Pay %</th>
+                      <th>Conv %</th>
+                      <th>Sales Team Conv %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>{formatNumber(metricsData?.callsPerDtPerDay || 0)}</td>
+                      <td>{formatPercentage(metricsData?.connectivity || 0)}</td>
+                      <td>{formatNumber(metricsData?.ttPerConnectedCall || 0)}</td>
+                      <td>{formatNumber(metricsData?.leadsPerDtPerDay || 0)}</td>
+                      <td>{formatPercentage(metricsData?.leadVsConnected || 0)}</td>
+                      <td>{formatPercentage(metricsData?.mightPay || 0)}</td>
+                      <td>{formatPercentage(metricsData?.convPercent || 0)}</td>
+                      <td>{formatPercentage(metricsData?.salesTeamConv || 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}	
+
+function DashboardPage() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
+  
+  const [selectedSM, setSelectedSM] = useState<SM | null>(null);
+  const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
+  const [revType, setRevType] = useState<'service' | 'commerce'>('service');
+  const [data, setData] = useState<SM[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState({
+    userName: '',
+    userRole: '',
+    period: 'y' as 'y' | 'w' | 'm',
+    revType: 'service' as 'service' | 'commerce'
+  });
+
+  // Helper function to get cookie value
+  const getCookie = (name: string) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    return '';
+  };
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = () => {
+      const hasCookie = document.cookie.includes('isAuthenticated=true');
+      const hasLocalStorage = localStorage.getItem('isAuthenticated') === 'true';
+      const authenticated = hasCookie || hasLocalStorage;
+      
+      if (authenticated) {
+        // Get user info from cookies/localStorage
+        const email = localStorage.getItem('userEmail') || getCookie('userEmail');
+        const name = localStorage.getItem('userName') || decodeURIComponent(getCookie('userName') || '');
+        const role = localStorage.getItem('userRole') || getCookie('userRole');
+        
+        setUserEmail(email || '');
+        setUserName(name || '');
+        setUserRole(role || '');
+      }
+      
+      setIsAuthenticated(authenticated);
+      
+      if (!authenticated) {
+        router.push('/login');
+      }
     };
-  }, []);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return data;
-    const q = search.toLowerCase();
-    const keepLeaf = (l: Leaf) => l.name.toLowerCase().includes(q) || l.role.toLowerCase().includes(q);
-    const keepMgr = (m: Manager) =>
-      m.name.toLowerCase().includes(q) || m.children.some(keepLeaf);
-    const keepSM = (s: SM) =>
-      s.name.toLowerCase().includes(q) || s.children.some(keepMgr);
+    setTimeout(checkAuth, 100);
+  }, [router]);
 
-    return data
-      .filter(keepSM)
-      .map((s) => ({
-        ...s,
-        children: s.children
-          .filter(keepMgr)
-          .map((m) => ({ ...m, children: m.children.filter(keepLeaf) })),
-      }));
-  }, [data, search]);
+  // Fetch data on component mount after authentication
+  useEffect(() => {
+    if (!isAuthenticated) return;
 
-  function toggle(id: string, open?: boolean) {
-    setExpanded((prev) => ({ ...prev, [id]: typeof open === 'boolean' ? open : !prev[id] }));
+    async function loadData() {
+      try {
+        setLoading(true);
+        
+        const response = await fetch('/api/hierarchy');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch data');
+        }
+        
+        const { sms, managers, ams } = await response.json();
+        
+        // Filter data based on user role
+        let filteredData = sms;
+        if (userRole === 'sm') {
+          // For SM users, only show their own data
+          filteredData = sms.filter((sm: UserWithTargets) => 
+            sm.name.toLowerCase() === userName.toLowerCase()
+          );
+        }
+        
+        const hierarchy = buildHierarchy(filteredData, managers, ams);
+        setData(hierarchy);
+        
+        if (hierarchy.length > 0) {
+          setSelectedSM(hierarchy[0]);
+        }
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Failed to load data from Google Sheets. Please check your connection and try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [isAuthenticated, userRole, userName]);
+
+  const handleLogout = () => {
+    // Clear all auth cookies
+    document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'userEmail=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'userName=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    
+    // Clear localStorage
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userRole');
+    
+    router.push('/login');
+  };
+
+  const managersToDisplay = useMemo(() => {
+    if (selectedManager) {
+      return [selectedManager];
+    } else if (selectedSM) {
+      return selectedSM.children || [];
+    }
+    return [];
+  }, [selectedSM, selectedManager]);
+
+  const filteredAMs = useMemo(() => {
+    if (selectedManager) {
+      return selectedManager.children || [];
+    } else if (selectedSM) {
+      return (selectedSM.children || []).flatMap((m: Manager) => m.children || []);
+    }
+    return [];
+  }, [selectedSM, selectedManager]);
+
+  const handleSMChange = (smId: string) => {
+    const sm = data.find(s => s.id === smId) || null;
+    setSelectedSM(sm);
+    setSelectedManager(null);
+  };
+
+  const handleManagerChange = (managerId: string) => {
+    if (!managerId) {
+      setSelectedManager(null);
+      return;
+    }
+    
+    const manager = selectedSM?.children?.find((m: Manager) => m.id === managerId) || null;
+    setSelectedManager(manager);
+  };
+
+  const handleMetricClick = (userName: string, userRole: string, period: 'y' | 'w' | 'm') => {
+    setModalData({
+      userName,
+      userRole,
+      period,
+      revType
+    });
+    setModalOpen(true);
+  };
+
+  // Show loading while checking authentication
+  if (isAuthenticated === null) {
+    return (
+      <div className="crm-root">
+        <div className="loading-full">Checking authentication...</div>
+      </div>
+    );
   }
 
-  function expandAll(open: boolean) {
-    const all: Record<string, boolean> = {};
-    const walk = (s: SM) => {
-      all[s.id] = open;
-      s.children.forEach((m) => {
-        all[m.id] = open;
-        m.children.forEach((l) => (all[l.id] = open));
-      });
-    };
-    filtered.forEach(walk);
-    setExpanded(all);
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="crm-root">
+        <aside className="crm-aside">
+          <div className="brand">
+            <span className="brand-main">Fitelo</span>{' '}
+            <span className="brand-sub">SM Dashboard</span>
+            <span className="zap">⚡</span>
+          </div>
+
+          <nav className="nav">
+            <a className="nav-item active" onClick={() => router.push('/')}>
+              <span className="i">🏠</span> Dashboard
+            </a>
+            <a className="nav-item" onClick={() => router.push('/')}>
+              <span className="i">👥</span> Revenue
+            </a>
+            <a className="nav-item" onClick={() => router.push('/')}>
+              <span className="i">✅</span> Quality
+            </a>
+            <a className="nav-item" onClick={() => router.push('/issues')}>
+              <span className="i">🛠️</span> Issues
+            </a>
+            <a className="nav-item" onClick={() => router.push('/')}>
+              <span className="i">📊</span> Analytics
+            </a>
+          </nav>
+
+          <div className="user-info">
+            <div className="user-name">{userName}</div>
+            <div className="user-role">{userRole === 'admin' ? 'Administrator' : 'Senior Manager'}</div>
+            <div className="user-email">{userEmail}</div>
+            <button className="logout-btn" onClick={handleLogout}>
+              ⎋ Logout
+            </button>
+          </div>
+        </aside>
+        <section className="crm-main">
+          <div className="loading">Loading data from Google Sheets...</div>
+        </section>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="crm-root">
+        <aside className="crm-aside">
+          <div className="brand">
+            <span className="brand-main">Fitelo</span>{' '}
+            <span className="brand-sub">SM Dashboard</span>
+            <span className="zap">⚡</span>
+          </div>
+
+          <nav className="nav">
+            <a className="nav-item active" onClick={() => router.push('/')}>
+              <span className="i">🏠</span> Dashboard
+            </a>
+            <a className="nav-item" onClick={() => router.push('/')}>
+              <span className="i">👥</span> Revenue
+            </a>
+            <a className="nav-item" onClick={() => router.push('/')}>
+              <span className="i">✅</span> Quality
+            </a>
+            <a className="nav-item" onClick={() => router.push('/issues')}>
+              <span className="i">🛠️</span> Issues
+            </a>
+            <a className="nav-item" onClick={() => router.push('/')}>
+              <span className="i">📊</span> Analytics
+            </a>
+          </nav>
+
+          <div className="user-info">
+            <div className="user-name">{userName}</div>
+            <div className="user-role">{userRole === 'admin' ? 'Administrator' : 'Senior Manager'}</div>
+            <div className="user-email">{userEmail}</div>
+            <button className="logout-btn" onClick={handleLogout}>
+              ⎋ Logout
+            </button>
+          </div>
+        </aside>
+        <section className="crm-main">
+          <div className="error">
+            <h2>Error Loading Data</h2>
+            <p>{error}</p>
+            <button 
+              className="btn" 
+              onClick={() => window.location.reload()}
+              style={{ marginTop: '16px' }}
+            >
+              Try Again
+            </button>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (
     <div className="crm-root">
-      {/* Sidebar */}
       <aside className="crm-aside">
         <div className="brand">
           <span className="brand-main">Fitelo</span>{' '}
@@ -128,70 +844,93 @@ export default function Page() {
         </div>
 
         <nav className="nav">
-          <a className="nav-item">
+          <a className="nav-item active" onClick={() => router.push('/')}>
             <span className="i">🏠</span> Dashboard
           </a>
-          <a className="nav-item active">
+          <a className="nav-item" onClick={() => router.push('/')}>
             <span className="i">👥</span> Revenue
           </a>
-          <a className="nav-item">
+          <a className="nav-item" onClick={() => router.push('/')}>
             <span className="i">✅</span> Quality
           </a>
-          <a className="nav-item">
+          <a className="nav-item" onClick={() => router.push('/issues')}>
             <span className="i">🛠️</span> Issues
           </a>
-          <a className="nav-item">
+          <a className="nav-item" onClick={() => router.push('/')}>
             <span className="i">📊</span> Analytics
           </a>
         </nav>
 
-        <button
-          className="logout"
-          onClick={async () => {
-            await fetch('/api/logout', { method: 'POST' });
-            location.href = '/login';
-          }}
-        >
-          ⎋ Logout
-        </button>
+        <div className="user-info">
+          <div className="user-name">{userName}</div>
+          <div className="user-role">{userRole === 'admin' ? 'Administrator' : 'Senior Manager'}</div>
+          <div className="user-email">{userEmail}</div>
+          <button className="logout-btn" onClick={handleLogout}>
+            ⎋ Logout
+          </button>
+        </div>
       </aside>
 
-      {/* Main */}
       <section className="crm-main">
         <header className="top">
           <div>
             <h1 className="title">Revenue Management</h1>
-            <p className="subtitle">
-              Track SM → Manager → AM/FLAP with clear targets
-              {lastFetched ? (
-                <span className="lastf"> • Last fetched: {new Date(lastFetched).toLocaleString()}</span>
-              ) : null}
-            </p>
+            <p className="subtitle">Live data from Google Sheets</p>
           </div>
 
-        <div className="actions">
-            <button className="btn" onClick={() => location.reload()} title="Refresh">⟲ Refresh</button>
-            <button className="btn" title="Export CSV" onClick={() => alert('Export wiring next')}>
-              ⬇ Export CSV
+          <div className="actions">
+            <button 
+              className="btn" 
+              title="Refresh" 
+              onClick={() => window.location.reload()}
+            >
+              ⟲ Refresh
             </button>
-            <button className="btn" title="Show Filters" onClick={() => alert('Filters coming soon')}>
-              ⚲ Show Filters
-            </button>
+            <button className="btn" title="Export CSV">⬇ Export CSV</button>
+            <button className="btn" title="Show Filters">⚲ Show Filters</button>
           </div>
         </header>
 
-        {/* Search */}
-        <div className="searchbar">
-          <input
-            className="search"
-            placeholder="Search by name or role…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button className="btn-secondary" onClick={() => setSearch('')}>Clear</button>
+        <div className="selection-row">
+          {userRole === 'admin' && (
+            <div className="select-group">
+              <label className="select-label">Select SM:</label>
+              <select 
+                className="select" 
+                value={selectedSM?.id || ''}
+                onChange={(e) => handleSMChange(e.target.value)}
+              >
+                <option value="">-- Select SM --</option>
+                {data.map(sm => (
+                  <option key={sm.id} value={sm.id}>{sm.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="select-group">
+            <label className="select-label">Select Manager:</label>
+            <select 
+              className="select" 
+              value={selectedManager?.id || ''}
+              onChange={(e) => handleManagerChange(e.target.value)}
+              disabled={!selectedSM}
+            >
+              <option value="">-- All Managers --</option>
+              {selectedSM?.children?.map((manager: Manager) => (
+                <option key={manager.id} value={manager.id}>{manager.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Revenue type toggle */}
+        {userRole === 'sm' && (
+          <div className="user-welcome">
+            <h3>Welcome, {userName}</h3>
+            <p>Viewing your team's performance data</p>
+          </div>
+        )}
+
         <div className="rev-toggle">
           <button
             className={`rev-pill ${revType === 'service' ? 'active' : ''}`}
@@ -209,187 +948,336 @@ export default function Page() {
           </button>
         </div>
 
-        {/* Extra controls */}
-        <div className="row-controls">
-          <div className="chips">
-            <span className="chip">Yesterday</span>
-            <span className="sep">•</span>
-            <span className="chip">WTD</span>
-            <span className="sep">•</span>
-            <span className="chip">MTD</span>
-          </div>
-
-          <label className="expand">
-            <input type="checkbox" onChange={(e) => expandAll(e.target.checked)} /> Expand all levels
-          </label>
-        </div>
-
-        {/* States */}
-        {loading && <div className="state">Loading…</div>}
-        {error && <div className="state err">Error: {error}</div>}
-
-        {/* Table */}
-        {!loading && !error && (
-          <div className="card">
-            {/* Polished sticky header */}
-            <div className="thead sticky">
-              <div className="h-name">
-                <div className="h-title">Name</div>
-                <div className="h-sub">SM → Manager → AM/FLAP</div>
-              </div>
-
-              <div className="h-role">
-                <div className="h-title">Role</div>
-                <div className="h-sub">Org level</div>
-              </div>
-
-              <div className="h-group">
-                <div className="g-title">Yesterday</div>
-                <div className="g-sub">
-                  <span>Achieved</span><span>Target</span><span>%</span>
+        {selectedSM && (
+          <div className="section">
+            <h2 className="section-title">SM Performance</h2>
+            <div className="card">
+              <div className="sm-data">
+                <div className="sm-header">
+                  <div className="sm-name">
+                    <span className="nm">{selectedSM.name}</span>
+                    <span className="badge sm">SM</span>
+                  </div>
+                  <div className="sm-role">Senior Manager</div>
+                </div>
+                
+                <div className="metrics-grid">
+                  <div className="metric-group">
+                    <div className="period-title">Yesterday</div>
+                    <Metrics 
+                      m={selectedSM.metrics[revType].y} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'y')}
+                    />
+                  </div>
+                  <div className="metric-group">
+                    <div className="period-title">WTD</div>
+                    <Metrics 
+                      m={selectedSM.metrics[revType].w} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'w')}
+                    />
+                  </div>
+                  <div className="metric-group">
+                    <div className="period-title">MTD</div>
+                    <Metrics 
+                      m={selectedSM.metrics[revType].m} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'm')}
+                    />
+                  </div>
                 </div>
               </div>
-
-              <div className="h-group">
-                <div className="g-title">WTD</div>
-                <div className="g-sub">
-                  <span>Achieved</span><span>Target</span><span>%</span>
-                </div>
-              </div>
-
-              <div className="h-group">
-                <div className="g-title">MTD</div>
-                <div className="g-sub">
-                  <span>Achieved</span><span>Target</span><span>%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="tbody">
-              {filtered.map((sm) => (
-                <RowSM key={sm.id} node={sm} expanded={expanded} onToggle={toggle} revType={revType} />
-              ))}
             </div>
           </div>
         )}
+
+        {selectedSM && managersToDisplay.length > 0 && (
+          <div className="section">
+            <h2 className="section-title">
+              Managers {selectedManager ? `- ${selectedManager.name}` : `under ${selectedSM.name}`}
+            </h2>
+            <div className="card">
+              <div className="thead">
+                <div className="h-name">
+                  <div className="h-title">Manager Name</div>
+                  <div className="h-sub">Reporting to {selectedSM.name}</div>
+                </div>
+                <div className="h-role">
+                  <div className="h-title">Role</div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">Yesterday</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">WTD</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">MTD</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="tbody">
+                {managersToDisplay.map(manager => (
+                  <div key={manager.id} className="row">
+                    <div className="c-name">
+                      <span className="nm">{manager.name}</span>
+                      <span className="badge m">M</span>
+                    </div>
+                    <div className="c-role">Manager</div>
+                    <Metrics 
+                      m={manager.metrics[revType].y} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}
+                    />
+                    <Metrics 
+                      m={manager.metrics[revType].w} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}
+                    />
+                    <Metrics 
+                      m={manager.metrics[revType].m} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {filteredAMs.length > 0 && (
+          <div className="section">
+            <h2 className="section-title">
+              AMs/FLAP {selectedManager ? `under ${selectedManager.name}` : `under ${selectedSM?.name}`}
+            </h2>
+            <div className="card">
+              <div className="thead">
+                <div className="h-name">
+                  <div className="h-title">AM/FLAP Name</div>
+                  <div className="h-sub">Team members</div>
+                </div>
+                <div className="h-role">
+                  <div className="h-title">Role</div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">Yesterday</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">WTD</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">MTD</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="tbody">
+                {filteredAMs.map(am => (
+                  <div key={am.id} className="row">
+                    <div className="c-name">
+                      <span className="nm">{am.name}</span>
+                      <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
+                    </div>
+                    <div className="c-role">{am.role === 'AM' ? 'Assistant Manager' : 'FLAP'}</div>
+                    <Metrics 
+                      m={am.metrics[revType].y} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(am.name, am.role, 'y')}
+                    />
+                    <Metrics 
+                      m={am.metrics[revType].w} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(am.name, am.role, 'w')}
+                    />
+                    <Metrics 
+                      m={am.metrics[revType].m} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(am.name, am.role, 'm')}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {data.length === 0 && !loading && (
+          <div className="section">
+            <div className="card">
+              <div className="no-data">
+                <h3>No Data Available</h3>
+                <p>No SM data found in the Google Sheet.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <MetricsModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          userName={modalData.userName}
+          userRole={modalData.userRole}
+          period={modalData.period}
+          revType={modalData.revType}
+        />
       </section>
 
+      <style jsx global>{`
+        .loading-full {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-size: 18px;
+          color: #64748b;
+        }
+
+        .loading, .error, .no-data {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          height: 200px;
+          font-size: 18px;
+          color: var(--muted);
+          text-align: center;
+        }
+        
+        .error {
+          color: #ef4444;
+        }
+        
+        .error h2 {
+          margin: 0 0 8px 0;
+          color: #dc2626;
+        }
+        
+        .error p {
+          margin: 0 0 16px 0;
+          max-width: 400px;
+          line-height: 1.5;
+        }
+        
+        .no-data h3 {
+          margin: 0 0 8px 0;
+          color: var(--text);
+        }
+        
+        .no-data p {
+          margin: 0;
+          color: var(--muted);
+        }
+
+        .user-info {
+          margin-top: auto;
+          padding: 16px;
+          border-top: 1px solid var(--line);
+          text-align: center;
+        }
+
+        .user-name {
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .user-role {
+          font-size: 12px;
+          color: var(--muted);
+          margin-top: 4px;
+        }
+
+        .user-email {
+          font-size: 11px;
+          color: var(--muted);
+          margin-top: 2px;
+          margin-bottom: 12px;
+        }
+
+        .logout-btn {
+          width: 100%;
+          background: #ef4444;
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .logout-btn:hover {
+          background: #dc2626;
+        }
+
+        .user-welcome {
+          background: var(--card);
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+
+        .user-welcome h3 {
+          margin: 0 0 4px 0;
+          color: var(--text);
+          font-size: 16px;
+        }
+
+        .user-welcome p {
+          margin: 0;
+          color: var(--muted);
+          font-size: 14px;
+        }
+      `}</style>
       <style jsx global>{CSS}</style>
     </div>
   );
 }
 
-/* ----------------------------- Rows ---------------------------------- */
+function Metrics({ m, isSales = false, onClick }: { m: Metric; isSales?: boolean; onClick?: () => void }) {
+  const formatValue = (value: number) => {
+    if (isSales) {
+      return fmtLakhs(value * 100000);
+    }
+    return fmt(value);
+  };
 
-type Pickable = { service: Block; commerce: Block };
-function pick(blocks: Pickable, revType: 'service' | 'commerce'): Block {
-  return revType === 'service' ? blocks.service : blocks.commerce;
-}
+  const getPercentageColor = (pct: number) => {
+    if (pct >= 80) return 'good';
+    if (pct >= 50) return 'warn';
+    return 'low';
+  };
 
-type RowSMProps = {
-  node: SM;
-  expanded: Record<string, boolean>;
-  onToggle: (id: string, open?: boolean) => void;
-  revType: 'service' | 'commerce';
-};
-
-function RowSM({ node, expanded, onToggle, revType }: RowSMProps) {
-  const open = !!expanded[node.id];
-  const blk = pick(node, revType);
-  return (
-    <>
-      <div className="row">
-        <div className="c-name">
-          <button className="caret" onClick={() => onToggle(node.id)}>
-            <span className={`arrow ${open ? 'open' : ''}`} />
-          </button>
-          <span className="nm">{node.name}</span>
-          <span className="badge sm">SM</span>
-        </div>
-        <div className="c-role">Senior Manager</div>
-
-        <Metrics m={blk.y} />
-        <Metrics m={blk.w} />
-        <Metrics m={blk.m} />
-      </div>
-
-      {open &&
-        node.children.map((m) => (
-          <RowMgr key={m.id} node={m} expanded={expanded} onToggle={onToggle} revType={revType} />
-        ))}
-    </>
-  );
-}
-
-type RowMgrProps = {
-  node: Manager;
-  expanded: Record<string, boolean>;
-  onToggle: (id: string, open?: boolean) => void;
-  revType: 'service' | 'commerce';
-};
-
-function RowMgr({ node, expanded, onToggle, revType }: RowMgrProps) {
-  const open = !!expanded[node.id];
-  const blk = pick(node, revType);
-  return (
-    <>
-      <div className="row mgr">
-        <div className="c-name">
-          <span className="indent guide" />
-          <button className="caret" onClick={() => onToggle(node.id)}>
-            <span className={`arrow ${open ? 'open' : ''}`} />
-          </button>
-          <span className="nm">{node.name}</span>
-          <span className="badge m">M</span>
-        </div>
-        <div className="c-role">Manager</div>
-
-        <Metrics m={blk.y} />
-        <Metrics m={blk.w} />
-        <Metrics m={blk.m} />
-      </div>
-
-      {open && node.children.map((l) => <RowLeaf key={l.id} node={l} revType={revType} />)}
-    </>
-  );
-}
-
-function RowLeaf({ node, revType }: { node: Leaf; revType: 'service' | 'commerce' }) {
-  const blk = pick(node, revType);
-  return (
-    <div className="row leaf">
-      <div className="c-name">
-        <span className="indent guide" />
-        <span className="indent guide deeper" />
-        <span className="dot" />
-        <span className="nm">{node.name}</span>
-        <span className={`badge ${node.role === 'AM' ? 'am' : 'flap'}`}>{node.role}</span>
-      </div>
-      <div className="c-role">{node.role === 'AM' ? 'Assistant Manager' : 'FLAP'}</div>
-
-      <Metrics m={blk.y} />
-      <Metrics m={blk.w} />
-      <Metrics m={blk.m} />
-    </div>
-  );
-}
-
-function Metrics({ m }: { m: Metric }) {
   return (
     <div className="grp">
       <div className="nums">
-        <div className="n">{fmt(m.achieved)}</div>
-        <div className="n">{fmt(m.target)}</div>
-        <div className={`n pct ${m.pct >= 100 ? 'good' : 'warn'}`}>{m.pct}%</div>
-      </div>
-      <div className="bar">
-        <div className="fill" style={{ width: `${Math.min(m.pct, 100)}%` }} />
+        <div className="n clickable" onClick={onClick}>{formatValue(m.achieved)}</div>
+        <div className="n clickable" onClick={onClick}>{formatValue(m.target)}</div>
+        <div className={`n pct ${getPercentageColor(m.pct)} clickable`} onClick={onClick}>{m.pct}%</div>
       </div>
     </div>
   );
 }
 
-/* ------------------------------ CSS ---------------------------------- */
+/* =============================== CSS ====================================== */
 
 const CSS = `
 :root{
@@ -401,6 +1289,7 @@ const CSS = `
   --text:#0f172a;
   --good:#16a34a;
   --warn:#f59e0b;
+  --low:#dc2626;
 }
 
 *{box-sizing:border-box}
@@ -419,83 +1308,232 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .nav-item:hover{background:#f3f4f6}
 .nav-item.active{background:#eef2ff}
 
-.logout{margin-top:auto;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;cursor:pointer}
-.logout:hover{background:#f8fafc}
-
 .crm-main{padding:18px 22px 40px;display:flex;flex-direction:column;gap:16px}
 .top{display:flex;justify-content:space-between;align-items:center}
 .title{margin:0 0 4px 0}
 .subtitle{margin:0;color:var(--muted)}
-.lastf{color:#9aa6b2}
 .actions{display:flex;gap:8px}
 .btn{background:#0f172a;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer}
 .btn:hover{opacity:.9}
 .btn-secondary{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
 .btn-secondary:hover{background:#f8fafc}
 
-.searchbar{display:flex;gap:8px;align-items:center}
-.search{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none}
-.search:focus{border-color:#cbd5e1}
+/* Selection dropdowns */
+.selection-row{display:flex;gap:20px;align-items:end}
+.select-group{display:flex;flex-direction:column;gap:6px}
+.select-label{font-size:13px;font-weight:600;color:#374151}
+.select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:200px;outline:none}
+.select:focus{border-color:#cbd5e1}
+.select:disabled{background:#f9fafb;color:#6b7280}
 
 /* Revenue toggle pills */
 .rev-toggle{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
 .rev-pill{background:#fff;border:1px solid var(--line);color:#0f172a;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 1px 0 rgba(15,23,42,.04)}
 .rev-pill.active{background:#0f172a;color:#fff;border-color:#0f172a}
 
-.row-controls{display:flex;justify-content:space-between;align-items:center}
-.chips{display:flex;align-items:center;gap:8px}
-.chip{background:#f3f4f6;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;color:#111827}
-.sep{color:#cbd5e1}
-.expand{font-size:13px;color:var(--muted)}
+/* Sections */
+.section{margin-top:8px}
+.section-title{font-size:16px;font-weight:600;color:#111827;margin:0 0 12px 0}
+
+/* SM Data Card */
+.sm-data{padding:16px}
+.sm-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line2)}
+.sm-name{display:flex;align-items:center;gap:10px}
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+
+.metric-group{border:1px solid var(--line2);border-radius:10px;padding:12px}
+.period-title{font-size:14px;font-weight:600;color:#374151;margin-bottom:8px;text-align:center}
 
 /* Table card */
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 
-/* Sticky polished header */
+/* Table header - IMPROVED ALIGNMENT */
 .thead,.row{display:grid;grid-template-columns:minmax(260px,1fr) 160px repeat(3, 1fr)}
-.thead.sticky{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#ffffff,#fbfbfb);border-bottom:1px solid var(--line2);box-shadow:0 1px 0 rgba(15,23,42,.04)}
-.h-name,.h-role,.h-group{padding:10px 12px}
+.thead{background:linear-gradient(180deg,#ffffff,#fbfbfb);border-bottom:1px solid var(--line2)}
+.h-name,.h-role,.h-group{padding:12px;text-align:center}
 .h-title{font-size:12px;text-transform:uppercase;letter-spacing:.02em;color:#111827;font-weight:700}
 .h-sub{font-size:12px;color:#94a3b8;margin-top:2px}
+.h-group.merged{grid-column:span 1}
 .h-group .g-title{font-size:12px;text-transform:uppercase;letter-spacing:.02em;color:#111827;font-weight:700;margin-bottom:4px}
 .h-group .g-sub{display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;font-size:12px;color:#94a3b8}
 
 /* Rows */
 .tbody{display:flex;flex-direction:column}
-.row{padding:10px 12px;align-items:center;border-bottom:1px solid var(--line2);transition:background .12s ease}
+.row{padding:12px;align-items:center;border-bottom:1px solid var(--line2);transition:background .12s ease}
 .row:hover{background:#fafbfd}
-.row.mgr .c-name{padding-left:20px}
-.row.leaf .c-name{padding-left:40px}
 
 .c-name{display:flex;align-items:center;gap:10px}
-.c-role{color:#64748b}
+.c-role{color:#64748b;text-align:center}
 
-.caret{width:28px;height:28px;border:1px solid var(--line);background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.arrow{width:0;height:0;border-left:6px solid #6b7280;border-top:5px solid transparent;border-bottom:5px solid transparent;transition:transform .16s ease}
-.arrow.open{transform:rotate(90deg)}
 .nm{font-weight:600}
 
-.grp{padding:0 10px}
+.grp{padding:0 10px;text-align:center}
 .nums{display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;align-items:center}
 .n{font-weight:600}
 .n.pct{justify-self:end}
+.n.pct.low{color:var(--low)}
 .n.pct.warn{color:var(--warn)}
 .n.pct.good{color:var(--good)}
-.bar{height:6px;background:#f3f6f9;border:1px solid #e5eaf1;border-radius:8px;margin-top:6px;overflow:hidden}
-.fill{height:100%;background:linear-gradient(90deg,#86efac,#60a5fa)}
+.clickable{cursor:pointer;transition:all 0.2s ease}
+.clickable:hover{transform:scale(1.05);background:#f8fafc;border-radius:4px;padding:2px 4px}
 
-/* Badges & guides */
+/* Badges */
 .badge{font-size:11px;border-radius:999px;padding:4px 10px;border:1px solid var(--line)}
 .badge.sm{background:#ecfdf5}
 .badge.m{background:#eef2ff}
 .badge.am{background:#fff7ed}
 .badge.flap{background:#fffdea}
 
-.indent{position:relative}
-.guide::after{content:"";position:absolute;left:-12px;top:-12px;bottom:-12px;border-left:1px dashed #dbe1ea}
-.guide.deeper::after{left:-22px}
-.dot{width:8px;height:8px;border-radius:999px;background:#9ca3af;border:1px solid #d1d5db}
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
 
-.state{padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:10px}
-.state.err{border-color:#fecaca;background:#fff1f2}
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.modal-subheader {
+  padding: 16px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--line);
+}
+
+.user-info-modal {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.period-selector {
+  display: flex;
+  gap: 8px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.period-btn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.period-btn.active {
+  background: #111827;
+  color: white;
+  border-color: #111827;
+}
+
+.period-btn:hover:not(.active) {
+  background: #e5e7eb;
+}
+
+.modal-section {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-section:last-of-type {
+  border-bottom: none;
+}
+
+.modal-section h3 {
+  margin: 0 0 16px 0;
+  color: #111827;
+  font-size: 16px;
+}
+
+.metrics-table {
+  overflow-x: auto;
+}
+
+.metrics-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.metrics-table th,
+.metrics-table td {
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--line);
+}
+
+.metrics-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #374151;
+}
+
+.metrics-table td {
+  color: #6b7280;
+}
+
+.modal-actions {
+  padding: 20px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-loading, .modal-error {
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.modal-loading .loading, .modal-error .error {
+  height: auto;
+  margin: 0;
+}
 `;
+
+export default DashboardPage;

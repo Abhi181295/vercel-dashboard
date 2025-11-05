@@ -1,95 +1,227 @@
+// app/login/page.tsx
+
 'use client';
 
 import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+// SM credentials mapping
+const SM_CREDENTIALS = {
+  'manpreet.sidhu@fitelo.co': {
+    name: 'Manpreet Kaur Sidhu',
+    password: 'Manpreet123',
+    role: 'sm'
+  },
+  'manpreet.kaur@fitelo.co': {
+    name: 'Manpreet Kaur Dhillon', 
+    password: 'Manpreet456',
+    role: 'sm'
+  },
+  'palak.thakur@fitelo.co': {
+    name: 'Palak Thakur',
+    password: 'Palak123',
+    role: 'sm'
+  },
+  'nandini.sharma@fitelo.co': {
+    name: 'Nandini Soti',
+    password: 'Nandini123',
+    role: 'sm'
+  },
+  'santdeep@fitelo.co': {
+    name: 'Santdeep Singh',
+    password: 'Santdeep123',
+    role: 'sm'
+  },
+  'admin@fitelo.co': {
+    name: 'Admin User',
+    password: 'Fitelo12345@',
+    role: 'admin'
+  }
+};
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next') || '/';
 
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Fitelo CRM';
-
-  async function onSubmit(e: React.FormEvent) {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error || 'Login failed');
-      } else {
-        const params = new URLSearchParams(window.location.search);
-        const next = params.get('next') || '/';
-        window.location.href = next;
+    setLoading(true);
+    setError('');
+
+    const user = SM_CREDENTIALS[email as keyof typeof SM_CREDENTIALS];
+    
+    if (user && password === user.password) {
+      try {
+        // Set authentication cookies
+        document.cookie = `isAuthenticated=true; path=/; max-age=86400`;
+        document.cookie = `userEmail=${email}; path=/; max-age=86400`;
+        document.cookie = `userName=${encodeURIComponent(user.name)}; path=/; max-age=86400`;
+        document.cookie = `userRole=${user.role}; path=/; max-age=86400`;
+        
+        // Also set in localStorage for client-side checks
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userEmail', email);
+        localStorage.setItem('userName', user.name);
+        localStorage.setItem('userRole', user.role);
+        
+        // Redirect to dashboard
+        router.push(next);
+      } catch (err) {
+        setError('Login failed. Please try again.');
       }
-    } catch (e: any) {
-      setError(e?.message || 'Network error');
-    } finally {
-      setSubmitting(false);
+    } else {
+      setError('Invalid email or password.');
     }
-  }
+    setLoading(false);
+  };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-amber-50 via-emerald-50 to-cyan-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Welcome to</h1>
-          <div className="text-2xl font-semibold bg-gradient-to-r from-emerald-500 to-amber-500 bg-clip-text text-transparent">
-            {appName}
-          </div>
+    <div className="login-container">
+      <div className="login-card">
+        <div className="login-header">
+          <h1>Fitelo SM Dashboard</h1>
+          <p>Sign in to access your team dashboard</p>
         </div>
-
-        <h2 className="text-xl font-semibold text-center mb-4">Sign in</h2>
-        <p className="text-sm text-slate-500 text-center mb-6">
-          Enter your credentials to access the dashboard
-        </p>
-
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+        
+        <form onSubmit={handleLogin} className="login-form">
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
             <input
               type="email"
-              required
+              id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400"
+              required
+              autoComplete="username"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+          
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
             <input
               type="password"
-              required
+              id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400"
+              required
+              autoComplete="current-password"
             />
           </div>
-
-          {error && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 transition disabled:opacity-60"
-          >
-            {submitting ? 'Signing in…' : 'Sign in'}
+          
+          {error && <div className="error-message">{error}</div>}
+          
+          <button type="submit" disabled={loading} className="login-button">
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>
+
+      <style jsx>{`
+        .login-container {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f8fafc;
+          padding: 20px;
+        }
+        
+        .login-card {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          width: 100%;
+          max-width: 400px;
+        }
+        
+        .login-header {
+          text-align: center;
+          margin-bottom: 32px;
+        }
+        
+        .login-header h1 {
+          margin: 0 0 8px 0;
+          color: #111827;
+          font-size: 24px;
+          font-weight: 700;
+        }
+        
+        .login-header p {
+          margin: 0;
+          color: #6b7280;
+          font-size: 14px;
+        }
+        
+        .login-form {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        
+        .form-group label {
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+        }
+        
+        .form-group input {
+          padding: 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          font-size: 16px;
+          transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .error-message {
+          background: #fef2f2;
+          color: #dc2626;
+          padding: 12px;
+          border-radius: 8px;
+          font-size: 14px;
+          border: 1px solid #fecaca;
+        }
+        
+        .login-button {
+          background: #111827;
+          color: white;
+          border: none;
+          padding: 12px;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.2s;
+        }
+        
+        .login-button:hover:not(:disabled) {
+          opacity: 0.9;
+        }
+        
+        .login-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      `}</style>
     </div>
   );
 }
