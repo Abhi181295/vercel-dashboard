@@ -745,6 +745,363 @@ export default function IssuesPage() {
           </div>
         </div>
       </section>
+
+      <style jsx global>{`
+        .crm-root {
+          display: grid;
+          grid-template-columns: 260px 1fr;
+          min-height: 100vh;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .crm-aside {
+          background: #ffffff;
+          border-right: 1px solid #e5e7eb;
+          padding: 18px 16px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .brand {
+          font-weight: 700;
+          font-size: 18px;
+          margin: 4px 6px 14px;
+        }
+
+        .brand-main {
+          color: #111827;
+        }
+
+        .brand-sub {
+          color: #f97316;
+          margin-left: 6px;
+        }
+
+        .zap {
+          margin-left: 6px;
+        }
+
+        .nav {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px;
+          border-radius: 10px;
+          color: #0f172a;
+          text-decoration: none;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .nav-item:hover {
+          background: #f3f4f6;
+        }
+
+        .nav-item.active {
+          background: #eef2ff;
+        }
+
+        .nav-item .i {
+          font-size: 16px;
+        }
+
+        .user-info {
+          margin-top: auto;
+          padding: 16px;
+          border-top: 1px solid #e5e7eb;
+          text-align: center;
+        }
+
+        .user-name {
+          font-weight: 600;
+          color: #111827;
+        }
+
+        .user-role {
+          font-size: 12px;
+          color: #64748b;
+          margin-top: 4px;
+        }
+
+        .user-email {
+          font-size: 11px;
+          color: #64748b;
+          margin-top: 2px;
+          margin-bottom: 12px;
+        }
+
+        .logout-btn {
+          width: 100%;
+          background: #ef4444;
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: background-color 0.2s;
+        }
+
+        .logout-btn:hover {
+          background: #dc2626;
+        }
+
+        .crm-main {
+          padding: 18px 22px 40px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          background: #f8fafc;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .title {
+          margin: 0 0 4px 0;
+          color: #111827;
+          font-size: 24px;
+          font-weight: 700;
+        }
+
+        .subtitle {
+          margin: 0;
+          color: #64748b;
+          font-size: 14px;
+        }
+
+        .actions {
+          display: flex;
+          gap: 8px;
+        }
+
+        .btn {
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 12px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: opacity 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+          opacity: 0.9;
+        }
+
+        .btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .selection-row {
+          display: flex;
+          gap: 20px;
+          align-items: end;
+        }
+
+        .select-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .select-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #374151;
+        }
+
+        .select {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 8px 12px;
+          min-width: 200px;
+          outline: none;
+          font-size: 14px;
+        }
+
+        .select:focus {
+          border-color: #cbd5e1;
+        }
+
+        .select:disabled {
+          background: #f9fafb;
+          color: #6b7280;
+        }
+
+        .user-welcome {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+
+        .user-welcome h3 {
+          margin: 0 0 4px 0;
+          color: #111827;
+          font-size: 16px;
+        }
+
+        .user-welcome p {
+          margin: 0;
+          color: #64748b;
+          font-size: 14px;
+        }
+
+        .rev-toggle {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          margin: 8px 0 4px;
+        }
+
+        .rev-pill {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          color: #0f172a;
+          padding: 8px 14px;
+          border-radius: 999px;
+          cursor: pointer;
+          box-shadow: 0 1px 0 rgba(15,23,42,.04);
+          transition: all 0.2s;
+        }
+
+        .rev-pill.active {
+          background: #0f172a;
+          color: #fff;
+          border-color: #0f172a;
+        }
+
+        .rev-pill:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .issues-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 20px;
+          margin-top: 16px;
+        }
+
+        .issue-card {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+          transition: box-shadow 0.2s;
+        }
+
+        .issue-card:hover {
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .issue-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .issue-title {
+          margin: 0;
+          color: #111827;
+          font-size: 18px;
+          font-weight: 600;
+        }
+
+        .issue-count {
+          background: #ef4444;
+          color: white;
+          border-radius: 999px;
+          padding: 4px 12px;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .issue-description {
+          margin: 0 0 16px 0;
+          color: #64748b;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .view-details-btn {
+          background: #0f172a;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s;
+          width: 100%;
+        }
+
+        .view-details-btn:hover:not(:disabled) {
+          background: #1e293b;
+          transform: translateY(-1px);
+        }
+
+        .view-details-btn:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .loading-full {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-size: 18px;
+          color: #64748b;
+        }
+
+        .loading, .error {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          height: 200px;
+          font-size: 18px;
+          text-align: center;
+        }
+
+        .loading {
+          color: #64748b;
+        }
+
+        .error {
+          color: #ef4444;
+        }
+
+        .error h2 {
+          margin: 0 0 8px 0;
+          color: #dc2626;
+        }
+
+        .error p {
+          margin: 0 0 16px 0;
+          max-width: 400px;
+          line-height: 1.5;
+        }
+      `}</style>
     </div>
   );
 }
