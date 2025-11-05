@@ -462,15 +462,20 @@ export default function IssuesPage() {
     return underperformers;
   }, [selectedSM]);
 
-  // Filter dietitians based on user role
+  // FIXED: Filter dietitians based on user role AND selected SM
   const filteredDietitians = useMemo(() => {
     if (userRole === 'sm') {
       return underperformingDietitians.filter(dietitian => 
         dietitian.smName.toLowerCase() === userName.toLowerCase()
       );
+    } else if (userRole === 'admin' && selectedSM) {
+      // Filter for admin when SM is selected
+      return underperformingDietitians.filter(dietitian => 
+        dietitian.smName.toLowerCase() === selectedSM.name.toLowerCase()
+      );
     }
-    return underperformingDietitians;
-  }, [underperformingDietitians, userRole, userName]);
+    return underperformingDietitians; // Show all for admin when no SM selected
+  }, [underperformingDietitians, userRole, userName, selectedSM]); // Added selectedSM dependency
 
   const handleLogout = () => {
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
