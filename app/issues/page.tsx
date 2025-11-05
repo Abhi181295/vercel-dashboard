@@ -1,3 +1,12 @@
+function metric(a: number, t: number, isSales: boolean = false) {
+  const pct = t ? Math.round((a / t) * 100) : 0;
+  if (isSales) {
+    const aInLakhs = a / 100000;
+    const tInLakhs = t / 100000;
+    return { achieved: aInLakhs, target: tInLakhs, pct };
+  }
+  return { achieved: a, target: t, pct };
+}
 // app/issues/page.tsx
 
 'use client';
@@ -876,6 +885,7 @@ export default function IssuesPage() {
 }
 
 // Hierarchy building function (copied from main dashboard)
+// Replace the entire buildHierarchy function in app/issues/page.tsx
 function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams: UserWithTargets[]) {
   const smMap = new Map(sms.map(sm => [sm.id, {
     ...sm,
@@ -948,7 +958,7 @@ function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams
         const virtualManager: any = {
           id: virtualManagerId,
           name: 'Direct Reports',
-          role: 'M',
+          role: 'M' as const,
           smId: am.smId,
           children: [],
           targets: { service: 0, commerce: 0 },
@@ -981,8 +991,11 @@ function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams
     }
   });
 
-  // Convert to array
-  return Array.from(smMap.values());
+  // Convert to array and ensure proper typing
+  return Array.from(smMap.values()).map(sm => ({
+    ...sm,
+    role: 'SM' as const // Force the role to be 'SM'
+  }));
 }
 
 // Issue Details Panel Component
