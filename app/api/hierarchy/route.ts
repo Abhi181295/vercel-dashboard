@@ -35,7 +35,7 @@ async function getSheetData(range: string) {
       url: `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`,
     });
 
-    return response.data.values || [];
+    return (response.data as any).values || [];
   } catch (error) {
     console.error('Error fetching sheet data:', error);
     throw error;
