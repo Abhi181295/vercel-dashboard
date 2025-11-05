@@ -1,4 +1,5 @@
 'use client';
+'use client';
 
 function metric(a: number, t: number, isSales: boolean = false) {
   const pct = t ? Math.round((a / t) * 100) : 0;
