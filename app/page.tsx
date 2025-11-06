@@ -255,6 +255,7 @@ function metric(a: number, t: number, isSales: boolean = false): Metric {
   return { achieved: a, target: t, pct: pct(a, t) };
 }
 
+// ---------------- HIERARCHY ----------------
 function buildHierarchy(
   sms: UserWithTargets[],
   managers: UserWithTargets[],
@@ -296,6 +297,7 @@ function buildHierarchy(
     }
   }]));
 
+  // Assign managers to SMs
   managers.forEach(manager => {
     if (manager.smId && smMap.has(manager.smId)) {
       const sm = smMap.get(manager.smId)!;
@@ -304,6 +306,7 @@ function buildHierarchy(
     }
   });
 
+  // Assign AMs to Managers or create a virtual manager under SM
   ams.forEach(am => {
     if (am.managerId && managerMap.has(am.managerId)) {
       const manager = managerMap.get(am.managerId)!;
@@ -362,6 +365,7 @@ function buildHierarchy(
     }
   });
 
+  // Attach EMs directly under SM
   ems.forEach(em => {
     if (em.smId && smMap.has(em.smId)) {
       const sm = smMap.get(em.smId)!;
@@ -386,6 +390,7 @@ function buildHierarchy(
   return Array.from(smMap.values());
 }
 
+/* ---------------- MODAL ---------------- */
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;
   onClose: () => void;
@@ -558,6 +563,7 @@ function DashboardPage() {
     revType: 'service' as 'service' | 'commerce'
   });
 
+  // --- helper: cookie read ---
   const getCookie = (name: string) => {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -565,6 +571,11 @@ function DashboardPage() {
     return '';
   };
 
+  // --- helper: identify "virtual/direct reports" manager (filter out from UI) ---
+  const isVirtualManager = (m?: Manager | null) =>
+    !!m && (m.id?.startsWith('virtual-m-') || (m.name || '').toLowerCase() === 'direct reports');
+
+  // --- auth check ---
   useEffect(() => {
     const checkAuth = () => {
       const hasCookie = document.cookie.includes('isAuthenticated=true');
@@ -591,16 +602,19 @@ function DashboardPage() {
     setTimeout(checkAuth, 100);
   }, [router]);
 
+  // --- data load ---
   const loadData = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/hierarchy');
       if (!response.ok) throw new Error('Failed to fetch data');
       const { sms, managers, ams, ems } = await response.json();
+
       let filteredData = sms;
       if (userRole === 'sm') {
         filteredData = sms.filter((sm: UserWithTargets) => sm.name.toLowerCase() === userName.toLowerCase());
       }
+
       const hierarchy = buildHierarchy(filteredData, managers, ams, ems || []);
       setData(hierarchy as any);
       if (hierarchy.length > 0) setSelectedSM(hierarchy[0] as any);
@@ -617,12 +631,14 @@ function DashboardPage() {
     loadData();
   }, [isAuthenticated, userRole, userName]);
 
+  // --- refresh ---
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
   };
 
+  // --- logout ---
   const handleLogout = () => {
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'userEmail=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -635,20 +651,24 @@ function DashboardPage() {
     router.push('/login');
   };
 
+  // --- managers list for table (hide virtual/Direct Reports) ---
   const managersToDisplay = useMemo(() => {
-    if (selectedManager) return [selectedManager];
-    else if (selectedSM) return selectedSM.children || [];
+    if (selectedManager) return [selectedManager].filter(m => !isVirtualManager(m));
+    else if (selectedSM) return (selectedSM.children || []).filter((m: Manager) => !isVirtualManager(m));
     return [];
   }, [selectedSM, selectedManager]);
 
+  // --- EMs under SM ---
   const emsToDisplay = useMemo(() => (selectedSM ? selectedSM.ems || [] : []), [selectedSM]);
 
+  // --- AMs list (kept intact; includes AMs of virtual manager so they still show) ---
   const filteredAMs = useMemo(() => {
     if (selectedManager) return selectedManager.children || [];
     else if (selectedSM) return (selectedSM.children || []).flatMap((m: Manager) => m.children || []);
     return [];
   }, [selectedSM, selectedManager]);
 
+  // --- select handlers ---
   const handleSMChange = (smId: string) => {
     const sm = data.find(s => s.id === smId) || null;
     setSelectedSM(sm);
@@ -661,6 +681,11 @@ function DashboardPage() {
       return;
     }
     const manager = selectedSM?.children?.find((m: Manager) => m.id === managerId) || null;
+    // prevent selecting virtual/Direct Reports
+    if (isVirtualManager(manager)) {
+      setSelectedManager(null);
+      return;
+    }
     setSelectedManager(manager);
   };
 
@@ -669,6 +694,7 @@ function DashboardPage() {
     setModalOpen(true);
   };
 
+  // --- render states ---
   if (isAuthenticated === null) {
     return <div className="crm-root"><div className="loading-full">Checking authentication...</div></div>;
   }
@@ -773,9 +799,19 @@ function DashboardPage() {
 
           <div className="select-group">
             <label className="select-label">Select Manager:</label>
-            <select className="select" value={selectedManager?.id || ''} onChange={(e) => handleManagerChange(e.target.value)} disabled={!selectedSM}>
+            <select
+              className="select"
+              value={selectedManager?.id || ''}
+              onChange={(e) => handleManagerChange(e.target.value)}
+              disabled={!selectedSM}
+            >
               <option value="">-- All Managers --</option>
-              {selectedSM?.children?.map((manager: Manager) => (<option key={manager.id} value={manager.id}>{manager.name}</option>))}
+              {/* hide virtual/Direct Reports in dropdown */}
+              {selectedSM?.children
+                ?.filter((m: Manager) => !isVirtualManager(m))
+                .map((manager: Manager) => (
+                  <option key={manager.id} value={manager.id}>{manager.name}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -1127,7 +1163,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .sm-name{display:flex;align-items:center;gap:10px}
 .metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 
-/* >>> Enhanced metric blocks (Yesterday/WTD/MTD) <<< */
+/* Enhanced metric blocks (Yesterday/WTD/MTD) */
 .metric-group{border:1px solid var(--line2);border-radius:14px;padding:14px;position:relative;overflow:hidden;background:#fff;box-shadow:0 1px 0 rgba(15,23,42,0.02);transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease}
 .metric-group:nth-child(1){border-left:6px solid var(--acc1-br);background:linear-gradient(180deg,var(--acc1-bg),#ffffff)}
 .metric-group:nth-child(2){border-left:6px solid var(--acc2-br);background:linear-gradient(180deg,var(--acc2-bg),#ffffff)}
@@ -1151,7 +1187,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .h-group .g-title{font-size:12px;text-transform:uppercase;letter-spacing:.02em;color:#111827;font-weight:700;margin-bottom:4px}
 .h-group .g-sub{display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;font-size:12px;color:#94a3b8}
 
-/* >>> NEW: Light period tints in table headers <<< */
+/* Light period tints in table headers */
 .h-period.h-y{background:var(--acc1-bg-soft);border-left:4px solid var(--acc1-br-soft)}
 .h-period.h-w{background:var(--acc2-bg-soft);border-left:4px solid var(--acc2-br-soft)}
 .h-period.h-m{background:var(--acc3-bg-soft);border-left:4px solid var(--acc3-br-soft)}
@@ -1177,7 +1213,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .clickable{cursor:pointer;transition:all 0.16s ease}
 .clickable:hover{transform:scale(1.05)}
 
-/* >>> NEW: Light period tints in table rows (cells) <<< */
+/* Light period tints in table rows (cells) */
 .row .grp-y .n{background:var(--acc1-bg-soft);border-color:var(--acc1-br-soft)}
 .row .grp-w .n{background:var(--acc2-bg-soft);border-color:var(--acc2-br-soft)}
 .row .grp-m .n{background:var(--acc3-bg-soft);border-color:var(--acc3-br-soft)}
