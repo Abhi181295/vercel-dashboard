@@ -751,200 +751,199 @@ export default function IssuesPage() {
         </div>
       </section>
 
-      {/* Details Panel - INTEGRATED DIRECTLY */}
+      {/* Issue Details Panel */}
       {isPanelOpen && (
-        <div className="details-panel-overlay" onClick={handleClosePanel}>
-          <div className="details-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="panel-header">
-              <h2 className="panel-title">
-                {selectedIssue === 'underperforming' ? 'Underperforming AMs' : 'Underperforming Dietitians'}
-              </h2>
-              <button className="panel-close" onClick={handleClosePanel}>×</button>
-            </div>
-            
-            <div className="panel-content">
-              {selectedIssue === 'underperforming' && (
-                <div className="issue-details">
-                  <h3>AMs Performing at or Below 25% of Daily Target</h3>
-                  {underperformingAMs.length === 0 ? (
-                    <p className="no-issues">No underperforming AMs found</p>
-                  ) : (
-                    <div className="issues-list">
-                      {underperformingAMs.map(am => (
-                        <div key={am.id} className="issue-item">
-                          <div className="issue-item-header">
-                            <span className="issue-item-name">{am.name}</span>
-                            <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
-                          </div>
-                          <div className="issue-item-metrics">
-                            <div className="metric-row">
-                              <span>Yesterday:</span>
-                              <span className={`pct ${am.metrics.service.y.pct <= 25 ? 'low' : ''}`}>
-                                {am.metrics.service.y.pct}%
-                              </span>
-                            </div>
-                            <div className="metric-row">
-                              <span>Achieved:</span>
-                              <span>{fmtLakhs(am.metrics.service.y.achieved * 100000)}L</span>
-                            </div>
-                            <div className="metric-row">
-                              <span>Target:</span>
-                              <span>{fmtLakhs(am.metrics.service.y.target * 100000)}L</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {selectedIssue === 'dietitians' && (
-                <div className="issue-details">
-                  <h3>Dietitians with 3+ Consecutive Zero Sales Days</h3>
-                  {filteredDietitians.length === 0 ? (
-                    <p className="no-issues">No underperforming dietitians found</p>
-                  ) : (
-                    <div className="issues-list">
-                      {filteredDietitians.map((dietitian, index) => (
-                        <div key={index} className="issue-item">
-                          <div className="issue-item-header">
-                            <span className="issue-item-name">{dietitian.dietitianName}</span>
-                            <span className="badge dietitian">Dietitian</span>
-                          </div>
-                          <div className="issue-item-metrics">
-                            <div className="metric-row">
-                              <span>SM:</span>
-                              <span>{dietitian.smName}</span>
-                            </div>
-                            <div className="metric-row">
-                              <span>Zero Days:</span>
-                              <span className="low">{dietitian.consecutiveZeroDays} days</span>
-                            </div>
-                            <div className="metric-row">
-                              <span>Sales Achieved:</span>
-                              <span>₹{dietitian.salesAchieved.toLocaleString()}</span>
-                            </div>
-                            <div className="metric-row">
-                              <span>Sales Target:</span>
-                              <span>₹{dietitian.salesTarget.toLocaleString()}</span>
-                            </div>
-                            <div className="metric-row">
-                              <span>Percent Achieved:</span>
-                              <span className={`pct ${dietitian.percentAchieved <= 25 ? 'low' : ''}`}>
-                                {dietitian.percentAchieved}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Metrics Modal - INTEGRATED DIRECTLY */}
-      {modalOpen && (
-        <MetricsModal
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
-          userName={modalData.userName}
-          userRole={modalData.userRole}
-          period={modalData.period}
-          revType={modalData.revType}
+        <IssueDetailsPanel
+          isOpen={isPanelOpen}
+          onClose={() => setIsPanelOpen(false)}
+          issueType={selectedIssue}
+          ams={underperformingAMs}
+          dietitians={filteredDietitians}
+          onMetricClick={handleMetricClick}
         />
       )}
 
+      {/* Funnel Metrics Modal */}
+      <MetricsModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        userName={modalData.userName}
+        userRole={modalData.userRole}
+        period={modalData.period}
+        revType={modalData.revType}
+      />
+
       <style jsx global>{`
-        .crm-root {
+        .issues-grid {
           display: grid;
-          grid-template-columns: 260px 1fr;
-          min-height: 100vh;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+          gap: 20px;
+          margin-top: 20px;
         }
 
-        .crm-aside {
-          background: #ffffff;
-          border-right: 1px solid #e5e7eb;
-          padding: 18px 16px;
+        .issue-card {
+          background: var(--card);
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          padding: 20px;
+          transition: all 0.2s ease;
+        }
+
+        .issue-card:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          transform: translateY(-2px);
+        }
+
+        .issue-header {
           display: flex;
-          flex-direction: column;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 12px;
         }
 
-        .brand {
-          font-weight: 700;
+        .issue-title {
+          margin: 0;
+          color: var(--text);
           font-size: 18px;
-          margin: 4px 6px 14px;
+          font-weight: 600;
         }
 
-        .brand-main {
-          color: #111827;
+        .issue-count {
+          background: #ef4444;
+          color: white;
+          border-radius: 20px;
+          padding: 4px 12px;
+          font-size: 14px;
+          font-weight: 600;
+          min-width: 30px;
+          text-align: center;
         }
 
-        .brand-sub {
-          color: #f97316;
-          margin-left: 6px;
+        .issue-description {
+          margin: 0 0 20px 0;
+          color: var(--muted);
+          font-size: 14px;
+          line-height: 1.5;
         }
 
-        .zap {
-          margin-left: 6px;
-        }
-
-        .nav {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .nav-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px;
-          border-radius: 10px;
-          color: #0f172a;
-          text-decoration: none;
+        .view-details-btn {
+          background: #0f172a;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 10px 16px;
+          font-size: 14px;
+          font-weight: 500;
           cursor: pointer;
-          transition: background-color 0.2s;
+          transition: opacity 0.2s;
+          width: 100%;
         }
 
-        .nav-item:hover {
-          background: #f3f4f6;
+        .view-details-btn:hover:not(:disabled) {
+          opacity: 0.9;
         }
 
-        .nav-item.active {
-          background: #eef2ff;
+        .view-details-btn:disabled {
+          background: #94a3b8;
+          cursor: not-allowed;
+          opacity: 0.6;
         }
 
-        .nav-item .i {
+        .loading-full {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-size: 18px;
+          color: #64748b;
+        }
+
+        .user-welcome {
+          background: var(--card);
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+
+        .user-welcome h3 {
+          margin: 0 0 4px 0;
+          color: var(--text);
           font-size: 16px;
         }
+
+        .user-welcome p {
+          margin: 0;
+          color: var(--muted);
+          font-size: 14px;
+        }
+      `}</style>
+      <style jsx global>{`
+        :root{
+          --bg:#f8fafc;
+          --card:#ffffff;
+          --line:#e5e7eb;
+          --line2:#eef0f3;
+          --muted:#64748b;
+          --text:#0f172a;
+          --good:#16a34a;
+          --warn:#f59e0b;
+          --low:#dc2626;
+        }
+
+        .crm-root{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+        .crm-aside{background:#ffffff;border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column}
+        .brand{font-weight:700;font-size:18px;margin:4px 6px 14px}
+        .brand-main{color:#111827}
+        .brand-sub{color:#f97316;margin-left:6px}
+        .zap{margin-left:6px}
+
+        .nav{display:flex;flex-direction:column;gap:4px}
+        .nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:10px;color:#0f172a;text-decoration:none;cursor:pointer}
+        .nav-item:hover{background:#f3f4f6}
+        .nav-item.active{background:#eef2ff}
+
+        .crm-main{padding:18px 22px 40px;display:flex;flex-direction:column;gap:16px}
+        .top{display:flex;justify-content:space-between;align-items:center}
+        .title{margin:0 0 4px 0}
+        .subtitle{margin:0;color:var(--muted)}
+        .actions{display:flex;gap:8px}
+        .btn{background:#0f172a;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer}
+        .btn:hover{opacity:.9}
+
+        .selection-row{display:flex;gap:20px;align-items:end}
+        .select-group{display:flex;flex-direction:column;gap:6px}
+        .select-label{font-size:13px;font-weight:600;color:#374151}
+        .select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:200px;outline:none}
+        .select:focus{border-color:#cbd5e1}
+        .select:disabled{background:#f9fafb;color:#6b7280}
+
+        .rev-toggle{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+        .rev-pill{background:#fff;border:1px solid var(--line);color:#0f172a;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 1px 0 rgba(15,23,42,.04)}
+        .rev-pill.active{background:#0f172a;color:#fff;border-color:#0f172a}
+        .rev-pill:disabled{background:#f3f4f6;color:#9ca3af;cursor:not-allowed}
 
         .user-info {
           margin-top: auto;
           padding: 16px;
-          border-top: 1px solid #e5e7eb;
+          border-top: 1px solid var(--line);
           text-align: center;
         }
 
         .user-name {
           font-weight: 600;
-          color: #111827;
+          color: var(--text);
         }
 
         .user-role {
           font-size: 12px;
-          color: #64748b;
+          color: var(--muted);
           margin-top: 4px;
         }
 
         .user-email {
           font-size: 11px;
-          color: #64748b;
+          color: var(--muted);
           margin-top: 2px;
           margin-bottom: 12px;
         }
@@ -958,232 +957,10 @@ export default function IssuesPage() {
           border-radius: 6px;
           cursor: pointer;
           font-size: 14px;
-          transition: background-color 0.2s;
         }
 
         .logout-btn:hover {
           background: #dc2626;
-        }
-
-        .crm-main {
-          padding: 18px 22px 40px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          background: #f8fafc;
-        }
-
-        .top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .title {
-          margin: 0 0 4px 0;
-          color: #111827;
-          font-size: 24px;
-          font-weight: 700;
-        }
-
-        .subtitle {
-          margin: 0;
-          color: #64748b;
-          font-size: 14px;
-        }
-
-        .actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .btn {
-          background: #0f172a;
-          color: #fff;
-          border: none;
-          border-radius: 8px;
-          padding: 8px 12px;
-          cursor: pointer;
-          font-size: 14px;
-          transition: opacity 0.2s;
-        }
-
-        .btn:hover:not(:disabled) {
-          opacity: 0.9;
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .selection-row {
-          display: flex;
-          gap: 20px;
-          align-items: end;
-        }
-
-        .select-group {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .select-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: #374151;
-        }
-
-        .select {
-          background: #fff;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          padding: 8px 12px;
-          min-width: 200px;
-          outline: none;
-          font-size: 14px;
-        }
-
-        .select:focus {
-          border-color: #cbd5e1;
-        }
-
-        .select:disabled {
-          background: #f9fafb;
-          color: #6b7280;
-        }
-
-        .user-welcome {
-          background: #ffffff;
-          border: 1px solid #e5e7eb;
-          border-radius: 10px;
-          padding: 16px;
-          margin-bottom: 16px;
-        }
-
-        .user-welcome h3 {
-          margin: 0 0 4px 0;
-          color: #111827;
-          font-size: 16px;
-        }
-
-        .user-welcome p {
-          margin: 0;
-          color: #64748b;
-          font-size: 14px;
-        }
-
-        .rev-toggle {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          margin: 8px 0 4px;
-        }
-
-        .rev-pill {
-          background: #fff;
-          border: 1px solid #e5e7eb;
-          color: #0f172a;
-          padding: 8px 14px;
-          border-radius: 999px;
-          cursor: pointer;
-          box-shadow: 0 1px 0 rgba(15,23,42,.04);
-          transition: all 0.2s;
-        }
-
-        .rev-pill.active {
-          background: #0f172a;
-          color: #fff;
-          border-color: #0f172a;
-        }
-
-        .rev-pill:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .issues-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 20px;
-          margin-top: 16px;
-        }
-
-        .issue-card {
-          background: #ffffff;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          padding: 20px;
-          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-          transition: box-shadow 0.2s;
-        }
-
-        .issue-card:hover {
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        .issue-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .issue-title {
-          margin: 0;
-          color: #111827;
-          font-size: 18px;
-          font-weight: 600;
-        }
-
-        .issue-count {
-          background: #ef4444;
-          color: white;
-          border-radius: 999px;
-          padding: 4px 12px;
-          font-size: 14px;
-          font-weight: 600;
-        }
-
-        .issue-description {
-          margin: 0 0 16px 0;
-          color: #64748b;
-          font-size: 14px;
-          line-height: 1.5;
-        }
-
-        .view-details-btn {
-          background: #0f172a;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          padding: 10px 16px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s;
-          width: 100%;
-        }
-
-        .view-details-btn:hover:not(:disabled) {
-          background: #1e293b;
-          transform: translateY(-1px);
-        }
-
-        .view-details-btn:disabled {
-          background: #9ca3af;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .loading-full {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-          font-size: 18px;
-          color: #64748b;
         }
 
         .loading, .error {
@@ -1193,540 +970,23 @@ export default function IssuesPage() {
           align-items: center;
           height: 200px;
           font-size: 18px;
+          color: var(--muted);
           text-align: center;
         }
-
-        .loading {
-          color: #64748b;
-        }
-
+        
         .error {
           color: #ef4444;
         }
-
+        
         .error h2 {
           margin: 0 0 8px 0;
           color: #dc2626;
         }
-
+        
         .error p {
           margin: 0 0 16px 0;
           max-width: 400px;
           line-height: 1.5;
         }
-
-        /* Details Panel Styles */
-        .details-panel-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: flex-end;
-          z-index: 1000;
-        }
-
-        .details-panel {
-          background: white;
-          width: 600px;
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .panel-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 20px 24px;
-          border-bottom: 1px solid #e5e7eb;
-          background: #f8fafc;
-        }
-
-        .panel-title {
-          margin: 0;
-          color: #111827;
-          font-size: 20px;
-          font-weight: 600;
-        }
-
-        .panel-close {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #64748b;
-          padding: 4px;
-          border-radius: 4px;
-          transition: background-color 0.2s;
-        }
-
-        .panel-close:hover {
-          background: #e5e7eb;
-        }
-
-        .panel-content {
-          flex: 1;
-          padding: 24px;
-          overflow-y: auto;
-        }
-
-        .issue-details h3 {
-          margin: 0 0 20px 0;
-          color: #374151;
-          font-size: 16px;
-          font-weight: 600;
-        }
-
-        .no-issues {
-          text-align: center;
-          color: #64748b;
-          font-style: italic;
-          padding: 40px 0;
-        }
-
-        .issues-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .issue-item {
-          background: #f8fafc;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          padding: 16px;
-        }
-
-        .issue-item-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .issue-item-name {
-          font-weight: 600;
-          color: #111827;
-          font-size: 16px;
-        }
-
-        .badge {
-          font-size: 12px;
-          border-radius: 999px;
-          padding: 4px 8px;
-          border: 1px solid #e5e7eb;
-        }
-
-        .badge.am {
-          background: #fff7ed;
-          color: #9a3412;
-        }
-
-        .badge.flap {
-          background: #fffdea;
-          color: #854d0e;
-        }
-
-        .badge.dietitian {
-          background: #ecfdf5;
-          color: #065f46;
-        }
-
-        .issue-item-metrics {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .metric-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 14px;
-        }
-
-        .metric-row span:first-child {
-          color: #64748b;
-        }
-
-        .metric-row span:last-child {
-          font-weight: 500;
-          color: #111827;
-        }
-
-        .pct.low {
-          color: #dc2626;
-          font-weight: 600;
-        }
       `}</style>
-    </div>
-  );
-}
-
-// Metrics Modal Component
-function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
-  isOpen: boolean;
-  onClose: () => void;
-  userName: string;
-  userRole: string;
-  period: 'y' | 'w' | 'm';
-  revType: 'service' | 'commerce';
-}) {
-  const [activePeriod, setActivePeriod] = useState<'y' | 'w' | 'm'>(period);
-  const [funnelData, setFunnelData] = useState<FunnelData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setActivePeriod(period);
-  }, [period]);
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchFunnelData();
-    }
-  }, [isOpen, userName, userRole]);
-
-  const fetchFunnelData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/funnel?name=${encodeURIComponent(userName)}&role=${userRole}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch funnel data');
-      }
-      const data = await response.json();
-      setFunnelData(data);
-    } catch (err) {
-      console.error('Error fetching funnel data:', err);
-      setError('Failed to load detailed metrics');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  const periodLabels = {
-    y: 'Yesterday',
-    w: 'WTD (Week to Date)',
-    m: 'MTD (Month to Date)'
-  };
-
-  const periodMap = {
-    y: 'ytd',
-    w: 'wtd', 
-    m: 'mtd'
-  } as const;
-
-  const currentPeriod = periodMap[activePeriod];
-  const rawData = funnelData?.rawTallies?.[currentPeriod];
-  const metricsData = funnelData?.metrics?.[currentPeriod];
-
-  const formatNumber = (num: number) => {
-    if (num === 0) return '-';
-    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
-  };
-
-  const formatPercentage = (num: number) => {
-    if (num === 0) return '-';
-    return `${(num * 100).toFixed(1)}%`;
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Funnel and Key Metrics</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="modal-subheader">
-          <div className="user-info-modal">
-            <strong>{userName}</strong> • {userRole} • {revType === 'service' ? 'Service Revenue' : 'Commerce Revenue'}
-            {funnelData && <span> • Team Size: {funnelData.teamSize}</span>}
-          </div>
-        </div>
-
-        <div className="period-selector">
-          <button
-            className={`period-btn ${activePeriod === 'y' ? 'active' : ''}`}
-            onClick={() => setActivePeriod('y')}
-          >
-            Yesterday
-          </button>
-          <button
-            className={`period-btn ${activePeriod === 'w' ? 'active' : ''}`}
-            onClick={() => setActivePeriod('w')}
-          >
-            WTD
-          </button>
-          <button
-            className={`period-btn ${activePeriod === 'm' ? 'active' : ''}`}
-            onClick={() => setActivePeriod('m')}
-          >
-            MTD
-          </button>
-        </div>
-
-        {loading && (
-          <div className="modal-loading">
-            <div className="loading">Loading funnel data...</div>
-          </div>
-        )}
-
-        {error && (
-          <div className="modal-error">
-            <div className="error">{error}</div>
-            <button className="btn" onClick={fetchFunnelData} style={{ marginTop: '16px' }}>
-              Retry
-            </button>
-          </div>
-        )}
-
-        {funnelData && !loading && (
-          <>
-            <div className="modal-section">
-              <h3>Funnel Metrics - {periodLabels[activePeriod]}</h3>
-              <div className="metrics-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Team Size</th>
-                      <th>Calls</th>
-                      <th>Connected</th>
-                      <th>Talktime (hrs)</th>
-                      <th>Leads</th>
-                      <th>Total Links</th>
-                      <th>Sales Links</th>
-                      <th>Conv</th>
-                      <th>Sales Conv</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>{funnelData.teamSize}</td>
-                      <td>{formatNumber(rawData?.calls || 0)}</td>
-                      <td>{formatNumber(rawData?.connected || 0)}</td>
-                      <td>{formatNumber(rawData?.talktime || 0)}</td>
-                      <td>{formatNumber(rawData?.leads || 0)}</td>
-                      <td>{formatNumber(rawData?.totalLinks || 0)}</td>
-                      <td>{formatNumber(rawData?.salesLinks || 0)}</td>
-                      <td>{formatNumber(rawData?.conv || 0)}</td>
-                      <td>{formatNumber(rawData?.salesConv || 0)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="modal-section">
-              <h3>Performance Metrics - {periodLabels[activePeriod]}</h3>
-              <div className="metrics-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Call per Dt. per day</th>
-                      <th>Connectivity %</th>
-                      <th>TT per connected call (min)</th>
-                      <th>Leads per Dt. per day</th>
-                      <th>Lead % vs Connected Call</th>
-                      <th>Might Pay %</th>
-                      <th>Conv %</th>
-                      <th>Sales Team Conv %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>{formatNumber(metricsData?.callsPerDtPerDay || 0)}</td>
-                      <td>{formatPercentage(metricsData?.connectivity || 0)}</td>
-                      <td>{formatNumber(metricsData?.ttPerConnectedCall || 0)}</td>
-                      <td>{formatNumber(metricsData?.leadsPerDtPerDay || 0)}</td>
-                      <td>{formatPercentage(metricsData?.leadVsConnected || 0)}</td>
-                      <td>{formatPercentage(metricsData?.mightPay || 0)}</td>
-                      <td>{formatPercentage(metricsData?.convPercent || 0)}</td>
-                      <td>{formatPercentage(metricsData?.salesTeamConv || 0)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        )}
-
-        <div className="modal-actions">
-          <button className="btn" onClick={onClose}>Close</button>
-        </div>
-      </div>
-
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.6);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1001;
-          padding: 20px;
-        }
-
-        .modal-content {
-          background: white;
-          border-radius: 12px;
-          width: 100%;
-          max-width: 1200px;
-          max-height: 90vh;
-          overflow-y: auto;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 20px 24px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .modal-header h2 {
-          margin: 0;
-          color: #111827;
-          font-size: 20px;
-        }
-
-        .modal-close {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #6b7280;
-          padding: 4px;
-          border-radius: 4px;
-        }
-
-        .modal-close:hover {
-          background: #f3f4f6;
-          color: #111827;
-        }
-
-        .modal-subheader {
-          padding: 16px 24px;
-          background: #f8fafc;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .user-info-modal {
-          font-size: 14px;
-          color: #6b7280;
-        }
-
-        .period-selector {
-          display: flex;
-          gap: 8px;
-          padding: 20px 24px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .period-btn {
-          background: #f3f4f6;
-          border: 1px solid #d1d5db;
-          padding: 8px 16px;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-
-        .period-btn.active {
-          background: #111827;
-          color: white;
-          border-color: #111827;
-        }
-
-        .period-btn:hover:not(.active) {
-          background: #e5e7eb;
-        }
-
-        .modal-section {
-          padding: 20px 24px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .modal-section:last-of-type {
-          border-bottom: none;
-        }
-
-        .modal-section h3 {
-          margin: 0 0 16px 0;
-          color: #111827;
-          font-size: 16px;
-        }
-
-        .metrics-table {
-          overflow-x: auto;
-        }
-
-        .metrics-table table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 14px;
-        }
-
-        .metrics-table th,
-        .metrics-table td {
-          padding: 12px;
-          text-align: center;
-          border: 1px solid #e5e7eb;
-        }
-
-        .metrics-table th {
-          background: #f8fafc;
-          font-weight: 600;
-          color: #374151;
-        }
-
-        .metrics-table td {
-          color: #6b7280;
-        }
-
-        .modal-actions {
-          padding: 20px 24px;
-          border-top: 1px solid #e5e7eb;
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        .modal-loading, .modal-error {
-          padding: 40px 24px;
-          text-align: center;
-        }
-
-        .modal-loading .loading, .modal-error .error {
-          height: auto;
-          margin: 0;
-        }
-
-        .btn {
-          background: #0f172a;
-          color: #fff;
-          border: none;
-          border-radius: 8px;
-          padding: 8px 12px;
-          cursor: pointer;
-        }
-
-        .btn:hover {
-          opacity: 0.9;
-        }
-      `}</style>
-    </div>
-  );
-}
+    </div
