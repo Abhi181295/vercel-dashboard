@@ -1,9 +1,9 @@
-// app/issues/page.tsx
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+
+export const revalidate = 300; // 5 minutes
 
 // Reuse existing types from main dashboard
 type UserWithTargets = {
@@ -169,6 +169,133 @@ interface FunnelData {
   };
 }
 
+function metric(a: number, t: number, isSales: boolean = false) {
+  const pct = t ? Math.round((a / t) * 100) : 0;
+  if (isSales) {
+    const aInLakhs = a / 100000;
+    const tInLakhs = t / 100000;
+    return { achieved: aInLakhs, target: tInLakhs, pct };
+  }
+  return { achieved: a, target: t, pct };
+}
+
+function fmtLakhs(n: number): string {
+  const valueInLakhs = n / 100000;
+  return valueInLakhs.toFixed(1);
+}
+
+function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams: UserWithTargets[]) {
+  const smMap = new Map(sms.map(sm => [sm.id, {
+    ...sm,
+    children: [] as any[],
+    metrics: {
+      service: {
+        y: metric(sm.achieved?.service.y || 0, sm.scaledTargets?.service.y || sm.targets.service, true),
+        w: metric(sm.achieved?.service.w || 0, sm.scaledTargets?.service.w || sm.targets.service, true),
+        m: metric(sm.achieved?.service.m || 0, sm.scaledTargets?.service.m || sm.targets.service, true),
+      },
+      commerce: {
+        y: metric(sm.achieved?.commerce.y || 0, sm.scaledTargets?.commerce.y || sm.targets.commerce, false),
+        w: metric(sm.achieved?.commerce.w || 0, sm.scaledTargets?.commerce.w || sm.targets.commerce, false),
+        m: metric(sm.achieved?.commerce.m || 0, sm.scaledTargets?.commerce.m || sm.targets.commerce, false),
+      },
+    }
+  }]));
+
+  const managerMap = new Map(managers.map(manager => [manager.id, {
+    ...manager,
+    children: [] as any[],
+    metrics: {
+      service: {
+        y: metric(manager.achieved?.service.y || 0, manager.scaledTargets?.service.y || manager.targets.service, true),
+        w: metric(manager.achieved?.service.w || 0, manager.scaledTargets?.service.w || manager.targets.service, true),
+        m: metric(manager.achieved?.service.m || 0, manager.scaledTargets?.service.m || manager.targets.service, true),
+      },
+      commerce: {
+        y: metric(manager.achieved?.commerce.y || 0, manager.scaledTargets?.commerce.y || manager.targets.commerce, false),
+        w: metric(manager.achieved?.commerce.w || 0, manager.scaledTargets?.commerce.w || manager.targets.commerce, false),
+        m: metric(manager.achieved?.commerce.m || 0, manager.scaledTargets?.commerce.m || manager.targets.commerce, false),
+      },
+    }
+  }]));
+
+  // Assign managers to SMs
+  managers.forEach(manager => {
+    if (manager.smId && smMap.has(manager.smId)) {
+      const sm = smMap.get(manager.smId)!;
+      const managerWithMetrics = managerMap.get(manager.id)!;
+      sm.children.push(managerWithMetrics);
+    }
+  });
+
+  // Assign AMs to Managers or directly to SMs if no manager
+  ams.forEach(am => {
+    if (am.managerId && managerMap.has(am.managerId)) {
+      // AM has a manager
+      const manager = managerMap.get(am.managerId)!;
+      manager.children.push({
+        ...am,
+        metrics: {
+          service: {
+            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
+            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
+            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
+          },
+          commerce: {
+            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
+            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
+            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
+          },
+        }
+      });
+    } else if (am.smId && smMap.has(am.smId)) {
+      // AM reports directly to SM (no manager)
+      const sm = smMap.get(am.smId)!;
+      const virtualManagerId = `virtual-m-${am.smId}`;
+      if (!managerMap.has(virtualManagerId)) {
+        const virtualManager: any = {
+          id: virtualManagerId,
+          name: 'Direct Reports',
+          role: 'M' as const,
+          smId: am.smId,
+          children: [],
+          targets: { service: 0, commerce: 0 },
+          scaledTargets: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
+          achieved: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
+          metrics: {
+            service: { y: metric(0, 0, true), w: metric(0, 0, true), m: metric(0, 0, true) },
+            commerce: { y: metric(0, 0, false), w: metric(0, 0, false), m: metric(0, 0, false) }
+          }
+        };
+        managerMap.set(virtualManagerId, virtualManager);
+        sm.children.push(virtualManager);
+      }
+      const virtualManager = managerMap.get(virtualManagerId)!;
+      virtualManager.children.push({
+        ...am,
+        metrics: {
+          service: {
+            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
+            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
+            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
+          },
+          commerce: {
+            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
+            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
+            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
+          },
+        }
+      });
+    }
+  });
+
+  // Convert to array and ensure proper typing
+  return Array.from(smMap.values()).map(sm => ({
+    ...sm,
+    role: 'SM' as const
+  }));
+}
+
 export default function IssuesPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -180,6 +307,7 @@ export default function IssuesPage() {
   const [data, setData] = useState<SM[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   
   // State for issue details panel
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -202,21 +330,6 @@ export default function IssuesPage() {
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) return parts.pop()?.split(';').shift();
     return '';
-  };
-
-  const metric = (a: number, t: number, isSales: boolean = false) => {
-    const pct = t ? Math.round((a / t) * 100) : 0;
-    if (isSales) {
-      const aInLakhs = a / 100000;
-      const tInLakhs = t / 100000;
-      return { achieved: aInLakhs, target: tInLakhs, pct };
-    }
-    return { achieved: a, target: t, pct };
-  };
-
-  const fmtLakhs = (n: number): string => {
-    const valueInLakhs = n / 100000;
-    return valueInLakhs.toFixed(1);
   };
 
   // Check authentication on component mount
@@ -246,70 +359,70 @@ export default function IssuesPage() {
     setTimeout(checkAuth, 100);
   }, [router]);
 
+  // Load data function that can be called independently
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      const [hierarchyResponse, dietitianGapsResponse] = await Promise.all([
+        fetch('/api/hierarchy'),
+        fetch('/api/dietitian-gaps')
+      ]);
+      
+      if (!hierarchyResponse.ok) {
+        throw new Error('Failed to fetch hierarchy data');
+      }
+      
+      const { sms, managers, ams } = await hierarchyResponse.json();
+      
+      // Filter data based on user role
+      let filteredData = sms;
+      if (userRole === 'sm') {
+        filteredData = sms.filter((sm: UserWithTargets) => 
+          sm.name.toLowerCase() === userName.toLowerCase()
+        );
+      }
+      
+      const hierarchy = buildHierarchy(filteredData, managers, ams);
+      
+      setData(hierarchy as SM[]);
+      
+      if (hierarchy.length > 0) {
+        setSelectedSM(hierarchy[0] as SM);
+      }
+
+      // Load dietitian gaps data
+      if (dietitianGapsResponse.ok) {
+        const gapsData = await dietitianGapsResponse.json();
+        setUnderperformingDietitians(gapsData.dietitianGaps || []);
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load data from Google Sheets. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch data on component mount after authentication
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    async function loadData() {
-      try {
-        setLoading(true);
-        
-        const [hierarchyResponse, dietitianGapsResponse] = await Promise.all([
-          fetch('/api/hierarchy'),
-          fetch('/api/dietitian-gaps')
-        ]);
-        
-        if (!hierarchyResponse.ok) {
-          throw new Error('Failed to fetch hierarchy data');
-        }
-        
-        const { sms, managers, ams } = await hierarchyResponse.json();
-        
-        // Filter data based on user role
-        let filteredData = sms;
-        if (userRole === 'sm') {
-          filteredData = sms.filter((sm: UserWithTargets) => 
-            sm.name.toLowerCase() === userName.toLowerCase()
-          );
-        }
-        
-        // Build hierarchy similar to main dashboard
-        const hierarchy = filteredData.map((sm: any) => ({
-          ...sm,
-          children: managers.filter((m: any) => m.smId === sm.id).map((manager: any) => ({
-            ...manager,
-            children: ams.filter((am: any) => am.managerId === manager.id || am.smId === sm.id)
-          }))
-        }));
-        
-        setData(hierarchy);
-        
-        if (hierarchy.length > 0) {
-          setSelectedSM(hierarchy[0]);
-        }
-
-        // Load dietitian gaps data
-        if (dietitianGapsResponse.ok) {
-          const gapsData = await dietitianGapsResponse.json();
-          setUnderperformingDietitians(gapsData.dietitianGaps || []);
-        }
-      } catch (err) {
-        console.error('Error loading data:', err);
-        setError('Failed to load data from Google Sheets. Please check your connection and try again.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadData();
   }, [isAuthenticated, userRole, userName]);
+
+  // Improved refresh function
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   // Calculate underperforming AMs (≤ 25% of daily target)
   const calculateUnderperformingAMs = useMemo(() => {
     if (!selectedSM) return [];
 
     const underperformers: IssueAM[] = [];
-    const seenAMs = new Set(); // To track unique AMs and avoid duplicates
+    const seenAMs = new Set();
     
     // Get all AMs under the selected SM
     const allAMs: any[] = [];
@@ -327,7 +440,7 @@ export default function IssuesPage() {
       const achieved = am.achieved?.service?.y || 0;
       const target = am.scaledTargets?.service?.y || am.targets.service;
       
-      // Calculate percentage (using same logic as main dashboard)
+      // Calculate percentage
       const performancePct = target > 0 ? (achieved / target) * 100 : 0;
       
       if (performancePct <= 25) {
@@ -349,15 +462,20 @@ export default function IssuesPage() {
     return underperformers;
   }, [selectedSM]);
 
-  // Filter dietitians based on user role
+  // FIXED: Filter dietitians based on user role AND selected SM
   const filteredDietitians = useMemo(() => {
     if (userRole === 'sm') {
       return underperformingDietitians.filter(dietitian => 
         dietitian.smName.toLowerCase() === userName.toLowerCase()
       );
+    } else if (userRole === 'admin' && selectedSM) {
+      // Filter for admin when SM is selected
+      return underperformingDietitians.filter(dietitian => 
+        dietitian.smName.toLowerCase() === selectedSM.name.toLowerCase()
+      );
     }
-    return underperformingDietitians;
-  }, [underperformingDietitians, userRole, userName]);
+    return underperformingDietitians; // Show all for admin when no SM selected
+  }, [underperformingDietitians, userRole, userName, selectedSM]); // Added selectedSM dependency
 
   const handleLogout = () => {
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -386,6 +504,11 @@ export default function IssuesPage() {
     setIsPanelOpen(true);
   };
 
+  const handleClosePanel = () => {
+    setIsPanelOpen(false);
+    setSelectedIssue('');
+  };
+
   const handleMetricClick = (userName: string, userRole: string, period: 'y' | 'w' | 'm') => {
     setModalData({
       userName,
@@ -409,7 +532,7 @@ export default function IssuesPage() {
     return null;
   }
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
@@ -546,9 +669,10 @@ export default function IssuesPage() {
             <button 
               className="btn" 
               title="Refresh" 
-              onClick={() => window.location.reload()}
+              onClick={handleRefresh}
+              disabled={refreshing}
             >
-              ⟲ Refresh
+              {refreshing ? 'Refreshing...' : '⟲ Refresh'}
             </button>
           </div>
         </header>
@@ -625,20 +749,106 @@ export default function IssuesPage() {
             </button>
           </div>
         </div>
+      </section>
 
-        {/* Issue Details Panel */}
-        {isPanelOpen && (
-          <IssueDetailsPanel
-            isOpen={isPanelOpen}
-            onClose={() => setIsPanelOpen(false)}
-            issueType={selectedIssue}
-            ams={underperformingAMs}
-            dietitians={filteredDietitians}
-            onMetricClick={handleMetricClick}
-          />
-        )}
+      {/* Details Panel - INTEGRATED DIRECTLY */}
+      {isPanelOpen && (
+        <div className="details-panel-overlay" onClick={handleClosePanel}>
+          <div className="details-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-header">
+              <h2 className="panel-title">
+                {selectedIssue === 'underperforming' ? 'Underperforming AMs' : 'Underperforming Dietitians'}
+              </h2>
+              <button className="panel-close" onClick={handleClosePanel}>×</button>
+            </div>
+            
+            <div className="panel-content">
+              {selectedIssue === 'underperforming' && (
+                <div className="issue-details">
+                  <h3>AMs Performing at or Below 25% of Daily Target</h3>
+                  {underperformingAMs.length === 0 ? (
+                    <p className="no-issues">No underperforming AMs found</p>
+                  ) : (
+                    <div className="issues-list">
+                      {underperformingAMs.map(am => (
+                        <div key={am.id} className="issue-item">
+                          <div className="issue-item-header">
+                            <span className="issue-item-name">{am.name}</span>
+                            <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
+                          </div>
+                          <div className="issue-item-metrics">
+                            <div className="metric-row">
+                              <span>Yesterday:</span>
+                              <span className={`pct ${am.metrics.service.y.pct <= 25 ? 'low' : ''}`}>
+                                {am.metrics.service.y.pct}%
+                              </span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Achieved:</span>
+                              <span>{fmtLakhs(am.metrics.service.y.achieved * 100000)}L</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Target:</span>
+                              <span>{fmtLakhs(am.metrics.service.y.target * 100000)}L</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
-        {/* Funnel Metrics Modal */}
+              {selectedIssue === 'dietitians' && (
+                <div className="issue-details">
+                  <h3>Dietitians with 3+ Consecutive Zero Sales Days</h3>
+                  {filteredDietitians.length === 0 ? (
+                    <p className="no-issues">No underperforming dietitians found</p>
+                  ) : (
+                    <div className="issues-list">
+                      {filteredDietitians.map((dietitian, index) => (
+                        <div key={index} className="issue-item">
+                          <div className="issue-item-header">
+                            <span className="issue-item-name">{dietitian.dietitianName}</span>
+                            <span className="badge dietitian">Dietitian</span>
+                          </div>
+                          <div className="issue-item-metrics">
+                            <div className="metric-row">
+                              <span>SM:</span>
+                              <span>{dietitian.smName}</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Zero Days:</span>
+                              <span className="low">{dietitian.consecutiveZeroDays} days</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Sales Achieved:</span>
+                              <span>₹{dietitian.salesAchieved.toLocaleString()}</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Sales Target:</span>
+                              <span>₹{dietitian.salesTarget.toLocaleString()}</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Percent Achieved:</span>
+                              <span className={`pct ${dietitian.percentAchieved <= 25 ? 'low' : ''}`}>
+                                {dietitian.percentAchieved}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Metrics Modal - INTEGRATED DIRECTLY */}
+      {modalOpen && (
         <MetricsModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
@@ -647,179 +857,94 @@ export default function IssuesPage() {
           period={modalData.period}
           revType={modalData.revType}
         />
-      </section>
+      )}
 
       <style jsx global>{`
-        .issues-grid {
+        .crm-root {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-          gap: 20px;
-          margin-top: 20px;
+          grid-template-columns: 260px 1fr;
+          min-height: 100vh;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .issue-card {
-          background: var(--card);
-          border: 1px solid var(--line);
-          border-radius: 12px;
-          padding: 20px;
-          transition: all 0.2s ease;
-        }
-
-        .issue-card:hover {
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-          transform: translateY(-2px);
-        }
-
-        .issue-header {
+        .crm-aside {
+          background: #ffffff;
+          border-right: 1px solid #e5e7eb;
+          padding: 18px 16px;
           display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
+          flex-direction: column;
         }
 
-        .issue-title {
-          margin: 0;
-          color: var(--text);
+        .brand {
+          font-weight: 700;
           font-size: 18px;
-          font-weight: 600;
+          margin: 4px 6px 14px;
         }
 
-        .issue-count {
-          background: #ef4444;
-          color: white;
-          border-radius: 20px;
-          padding: 4px 12px;
-          font-size: 14px;
-          font-weight: 600;
-          min-width: 30px;
-          text-align: center;
+        .brand-main {
+          color: #111827;
         }
 
-        .issue-description {
-          margin: 0 0 20px 0;
-          color: var(--muted);
-          font-size: 14px;
-          line-height: 1.5;
+        .brand-sub {
+          color: #f97316;
+          margin-left: 6px;
         }
 
-        .view-details-btn {
-          background: #0f172a;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          padding: 10px 16px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: opacity 0.2s;
-          width: 100%;
+        .zap {
+          margin-left: 6px;
         }
 
-        .view-details-btn:hover:not(:disabled) {
-          opacity: 0.9;
-        }
-
-        .view-details-btn:disabled {
-          background: #94a3b8;
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .loading-full {
+        .nav {
           display: flex;
-          justify-content: center;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .nav-item {
+          display: flex;
           align-items: center;
-          height: 100vh;
-          font-size: 18px;
-          color: #64748b;
-        }
-
-        .user-welcome {
-          background: var(--card);
-          border: 1px solid var(--line);
+          gap: 10px;
+          padding: 10px;
           border-radius: 10px;
-          padding: 16px;
-          margin-bottom: 16px;
+          color: #0f172a;
+          text-decoration: none;
+          cursor: pointer;
+          transition: background-color 0.2s;
         }
 
-        .user-welcome h3 {
-          margin: 0 0 4px 0;
-          color: var(--text);
+        .nav-item:hover {
+          background: #f3f4f6;
+        }
+
+        .nav-item.active {
+          background: #eef2ff;
+        }
+
+        .nav-item .i {
           font-size: 16px;
         }
-
-        .user-welcome p {
-          margin: 0;
-          color: var(--muted);
-          font-size: 14px;
-        }
-      `}</style>
-      <style jsx global>{`
-        :root{
-          --bg:#f8fafc;
-          --card:#ffffff;
-          --line:#e5e7eb;
-          --line2:#eef0f3;
-          --muted:#64748b;
-          --text:#0f172a;
-          --good:#16a34a;
-          --warn:#f59e0b;
-          --low:#dc2626;
-        }
-
-        .crm-root{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
-        .crm-aside{background:#ffffff;border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column}
-        .brand{font-weight:700;font-size:18px;margin:4px 6px 14px}
-        .brand-main{color:#111827}
-        .brand-sub{color:#f97316;margin-left:6px}
-        .zap{margin-left:6px}
-
-        .nav{display:flex;flex-direction:column;gap:4px}
-        .nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:10px;color:#0f172a;text-decoration:none;cursor:pointer}
-        .nav-item:hover{background:#f3f4f6}
-        .nav-item.active{background:#eef2ff}
-
-        .crm-main{padding:18px 22px 40px;display:flex;flex-direction:column;gap:16px}
-        .top{display:flex;justify-content:space-between;align-items:center}
-        .title{margin:0 0 4px 0}
-        .subtitle{margin:0;color:var(--muted)}
-        .actions{display:flex;gap:8px}
-        .btn{background:#0f172a;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer}
-        .btn:hover{opacity:.9}
-
-        .selection-row{display:flex;gap:20px;align-items:end}
-        .select-group{display:flex;flex-direction:column;gap:6px}
-        .select-label{font-size:13px;font-weight:600;color:#374151}
-        .select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:200px;outline:none}
-        .select:focus{border-color:#cbd5e1}
-        .select:disabled{background:#f9fafb;color:#6b7280}
-
-        .rev-toggle{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
-        .rev-pill{background:#fff;border:1px solid var(--line);color:#0f172a;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 1px 0 rgba(15,23,42,.04)}
-        .rev-pill.active{background:#0f172a;color:#fff;border-color:#0f172a}
-        .rev-pill:disabled{background:#f3f4f6;color:#9ca3af;cursor:not-allowed}
 
         .user-info {
           margin-top: auto;
           padding: 16px;
-          border-top: 1px solid var(--line);
+          border-top: 1px solid #e5e7eb;
           text-align: center;
         }
 
         .user-name {
           font-weight: 600;
-          color: var(--text);
+          color: #111827;
         }
 
         .user-role {
           font-size: 12px;
-          color: var(--muted);
+          color: #64748b;
           margin-top: 4px;
         }
 
         .user-email {
           font-size: 11px;
-          color: var(--muted);
+          color: #64748b;
           margin-top: 2px;
           margin-bottom: 12px;
         }
@@ -833,10 +958,232 @@ export default function IssuesPage() {
           border-radius: 6px;
           cursor: pointer;
           font-size: 14px;
+          transition: background-color 0.2s;
         }
 
         .logout-btn:hover {
           background: #dc2626;
+        }
+
+        .crm-main {
+          padding: 18px 22px 40px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          background: #f8fafc;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .title {
+          margin: 0 0 4px 0;
+          color: #111827;
+          font-size: 24px;
+          font-weight: 700;
+        }
+
+        .subtitle {
+          margin: 0;
+          color: #64748b;
+          font-size: 14px;
+        }
+
+        .actions {
+          display: flex;
+          gap: 8px;
+        }
+
+        .btn {
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 12px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: opacity 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+          opacity: 0.9;
+        }
+
+        .btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .selection-row {
+          display: flex;
+          gap: 20px;
+          align-items: end;
+        }
+
+        .select-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .select-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #374151;
+        }
+
+        .select {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 8px 12px;
+          min-width: 200px;
+          outline: none;
+          font-size: 14px;
+        }
+
+        .select:focus {
+          border-color: #cbd5e1;
+        }
+
+        .select:disabled {
+          background: #f9fafb;
+          color: #6b7280;
+        }
+
+        .user-welcome {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+
+        .user-welcome h3 {
+          margin: 0 0 4px 0;
+          color: #111827;
+          font-size: 16px;
+        }
+
+        .user-welcome p {
+          margin: 0;
+          color: #64748b;
+          font-size: 14px;
+        }
+
+        .rev-toggle {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          margin: 8px 0 4px;
+        }
+
+        .rev-pill {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          color: #0f172a;
+          padding: 8px 14px;
+          border-radius: 999px;
+          cursor: pointer;
+          box-shadow: 0 1px 0 rgba(15,23,42,.04);
+          transition: all 0.2s;
+        }
+
+        .rev-pill.active {
+          background: #0f172a;
+          color: #fff;
+          border-color: #0f172a;
+        }
+
+        .rev-pill:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .issues-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 20px;
+          margin-top: 16px;
+        }
+
+        .issue-card {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+          transition: box-shadow 0.2s;
+        }
+
+        .issue-card:hover {
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .issue-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .issue-title {
+          margin: 0;
+          color: #111827;
+          font-size: 18px;
+          font-weight: 600;
+        }
+
+        .issue-count {
+          background: #ef4444;
+          color: white;
+          border-radius: 999px;
+          padding: 4px 12px;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .issue-description {
+          margin: 0 0 16px 0;
+          color: #64748b;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .view-details-btn {
+          background: #0f172a;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s;
+          width: 100%;
+        }
+
+        .view-details-btn:hover:not(:disabled) {
+          background: #1e293b;
+          transform: translateY(-1px);
+        }
+
+        .view-details-btn:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .loading-full {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-size: 18px;
+          color: #64748b;
         }
 
         .loading, .error {
@@ -846,247 +1193,30 @@ export default function IssuesPage() {
           align-items: center;
           height: 200px;
           font-size: 18px;
-          color: var(--muted);
           text-align: center;
         }
-        
+
+        .loading {
+          color: #64748b;
+        }
+
         .error {
           color: #ef4444;
         }
-        
+
         .error h2 {
           margin: 0 0 8px 0;
           color: #dc2626;
         }
-        
+
         .error p {
           margin: 0 0 16px 0;
           max-width: 400px;
           line-height: 1.5;
         }
-      `}</style>
-    </div>
-  );
-}
 
-// Issue Details Panel Component - UPDATED WITH IMPROVED DIETITIANS STYLING
-function IssueDetailsPanel({ 
-  isOpen, 
-  onClose, 
-  issueType, 
-  ams, 
-  dietitians,
-  onMetricClick 
-}: { 
-  isOpen: boolean;
-  onClose: () => void;
-  issueType: string;
-  ams: IssueAM[];
-  dietitians: DietitianGap[];
-  onMetricClick: (name: string, role: string, period: 'y' | 'w' | 'm') => void;
-}) {
-  if (!isOpen) return null;
-
-  const getPercentageColor = (pct: number) => {
-    if (pct >= 80) return 'good';
-    if (pct >= 50) return 'warn';
-    return 'low';
-  };
-
-  const fmtLakhs = (n: number): string => {
-    const valueInLakhs = n / 100000;
-    return valueInLakhs.toFixed(1);
-  };
-
-  return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="panel-content" onClick={(e) => e.stopPropagation()}>
-        <div className="panel-header">
-          <h2>Issue Details</h2>
-          <button className="panel-close" onClick={onClose}>×</button>
-        </div>
-        
-        <div className="panel-body">
-          {issueType === 'underperforming' && (
-            <>
-              <div className="issue-info">
-                <h3>Underperforming AMs</h3>
-                <p>AMs performing at or below 25% of their daily target</p>
-                <div className="issue-count-badge">{ams.length} AMs found</div>
-              </div>
-
-              {ams.length > 0 ? (
-                <div className="ams-list">
-                  <div className="card">
-                    <div className="thead">
-                      <div className="h-name">
-                        <div className="h-title">AM/FLAP Name</div>
-                        <div className="h-sub">Team members</div>
-                      </div>
-                      <div className="h-role">
-                        <div className="h-title">Role</div>
-                      </div>
-                      <div className="h-group merged">
-                        <div className="g-title">Yesterday</div>
-                        <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
-                        </div>
-                      </div>
-                      <div className="h-group merged">
-                        <div className="g-title">WTD</div>
-                        <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
-                        </div>
-                      </div>
-                      <div className="h-group merged">
-                        <div className="g-title">MTD</div>
-                        <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="tbody">
-                      {ams.map(am => (
-                        <div key={`${am.id}-${am.name}`} className="row">
-                          <div className="c-name">
-                            <span className="nm">{am.name}</span>
-                            <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
-                          </div>
-                          <div className="c-role">{am.role === 'AM' ? 'Assistant Manager' : 'FLAP'}</div>
-                          
-                          {/* Yesterday Metrics */}
-                          <div className="grp">
-                            <div className="nums">
-                              <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'y')}>
-                                {am.metrics.service.y.achieved.toFixed(1)}L
-                              </div>
-                              <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'y')}>
-                                {am.metrics.service.y.target.toFixed(1)}L
-                              </div>
-                              <div className={`n pct ${getPercentageColor(am.metrics.service.y.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'y')}>
-                                {am.metrics.service.y.pct}%
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* WTD Metrics */}
-                          <div className="grp">
-                            <div className="nums">
-                              <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'w')}>
-                                {am.metrics.service.w.achieved.toFixed(1)}L
-                              </div>
-                              <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'w')}>
-                                {am.metrics.service.w.target.toFixed(1)}L
-                              </div>
-                              <div className={`n pct ${getPercentageColor(am.metrics.service.w.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'w')}>
-                                {am.metrics.service.w.pct}%
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* MTD Metrics */}
-                          <div className="grp">
-                            <div className="nums">
-                              <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'm')}>
-                                {am.metrics.service.m.achieved.toFixed(1)}L
-                              </div>
-                              <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'm')}>
-                                {am.metrics.service.m.target.toFixed(1)}L
-                              </div>
-                              <div className={`n pct ${getPercentageColor(am.metrics.service.m.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'm')}>
-                                {am.metrics.service.m.pct}%
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="no-issues">
-                  <p>No underperforming AMs found</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {issueType === 'dietitians' && (
-            <>
-              <div className="issue-info">
-                <h3>Underperforming Dietitians</h3>
-                <p>Dietitians with zero sales for 3+ consecutive days</p>
-                <div className="issue-count-badge">{dietitians.length} Dietitians found</div>
-              </div>
-
-              {dietitians.length > 0 ? (
-                <div className="dietitians-list">
-                  <div className="card">
-                    <div className="thead">
-                      <div className="h-name">
-                        <div className="h-title">Dietitian Name</div>
-                      </div>
-                      <div className="h-role">
-                        <div className="h-title">SM Name</div>
-                      </div>
-                      <div className="h-group">
-                        <div className="g-title">Zero Days</div>
-                      </div>
-                      <div className="h-group merged">
-                        <div className="g-title">Sales</div>
-                        <div className="g-sub">
-                          <span>Target</span><span>Achieved</span><span>%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="tbody">
-                      {dietitians.map((dietitian, index) => (
-                        <div key={`${dietitian.dietitianName}-${index}`} className="row">
-                          <div className="c-name">
-                            <span className="nm">{dietitian.dietitianName}</span>
-                          </div>
-                          <div className="c-role">{dietitian.smName}</div>
-                          
-                          {/* Zero Days */}
-                          <div className="grp">
-                            <div className="zero-days">
-                              <div className="n days">{dietitian.consecutiveZeroDays}</div>
-                            </div>
-                          </div>
-                          
-                          {/* Sales Metrics */}
-                          <div className="grp">
-                            <div className="nums">
-                              <div className="n target">
-                                {fmtLakhs(dietitian.salesTarget)}L
-                              </div>
-                              <div className="n achieved">
-                                {fmtLakhs(dietitian.salesAchieved)}L
-                              </div>
-                              <div className={`n pct ${getPercentageColor(dietitian.percentAchieved)}`}>
-                                {dietitian.percentAchieved}%
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="no-issues">
-                  <p>No underperforming dietitians found</p>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      <style jsx>{`
-        .panel-overlay {
+        /* Details Panel Styles */
+        .details-panel-overlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -1098,14 +1228,13 @@ function IssueDetailsPanel({
           z-index: 1000;
         }
 
-        .panel-content {
+        .details-panel {
           background: white;
-          width: 85%;
-          max-width: 1200px;
+          width: 600px;
           height: 100vh;
           display: flex;
           flex-direction: column;
-          box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+          box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
         }
 
         .panel-header {
@@ -1113,13 +1242,15 @@ function IssueDetailsPanel({
           justify-content: space-between;
           align-items: center;
           padding: 20px 24px;
-          border-bottom: 1px solid var(--line);
+          border-bottom: 1px solid #e5e7eb;
+          background: #f8fafc;
         }
 
-        .panel-header h2 {
+        .panel-title {
           margin: 0;
           color: #111827;
           font-size: 20px;
+          font-weight: 600;
         }
 
         .panel-close {
@@ -1127,308 +1258,116 @@ function IssueDetailsPanel({
           border: none;
           font-size: 24px;
           cursor: pointer;
-          color: #6b7280;
+          color: #64748b;
           padding: 4px;
           border-radius: 4px;
+          transition: background-color 0.2s;
         }
 
         .panel-close:hover {
-          background: #f3f4f6;
-          color: #111827;
+          background: #e5e7eb;
         }
 
-        .panel-body {
+        .panel-content {
           flex: 1;
-          overflow-y: auto;
           padding: 24px;
+          overflow-y: auto;
         }
 
-        .issue-info {
-          margin-bottom: 24px;
-          padding-bottom: 20px;
-          border-bottom: 1px solid var(--line);
-        }
-
-        .issue-info h3 {
-          margin: 0 0 8px 0;
-          color: #111827;
-          font-size: 18px;
-        }
-
-        .issue-info p {
-          margin: 0 0 12px 0;
-          color: #6b7280;
-          font-size: 14px;
-        }
-
-        .issue-count-badge {
-          background: #ef4444;
-          color: white;
-          padding: 6px 12px;
-          border-radius: 16px;
-          font-size: 14px;
+        .issue-details h3 {
+          margin: 0 0 20px 0;
+          color: #374151;
+          font-size: 16px;
           font-weight: 600;
-          display: inline-block;
-        }
-
-        .card {
-          background: var(--card);
-          border: 1px solid var(--line);
-          border-radius: 14px;
-          overflow: hidden;
-        }
-
-        .thead {
-          display: grid;
-          grid-template-columns: minmax(260px, 1fr) 160px repeat(3, 1fr);
-          background: linear-gradient(180deg, #ffffff, #fbfbfb);
-          border-bottom: 1px solid var(--line2);
-          padding: 12px 16px;
-        }
-
-        .h-name, .h-role, .h-group {
-          padding: 12px;
-          text-align: center;
-        }
-
-        .h-title {
-          font-size: 12px;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          color: #111827;
-          font-weight: 700;
-        }
-
-        .h-sub {
-          font-size: 12px;
-          color: #94a3b8;
-          margin-top: 2px;
-        }
-
-        .h-group.merged {
-          grid-column: span 1;
-        }
-
-        .h-group .g-title {
-          font-size: 12px;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          color: #111827;
-          font-weight: 700;
-          margin-bottom: 4px;
-        }
-
-        .h-group .g-sub {
-          display: grid;
-          grid-template-columns: 1fr 1fr 60px;
-          gap: 12px;
-          font-size: 12px;
-          color: #94a3b8;
-        }
-
-        .h-group .g-sub span:nth-child(1) { text-align: left; }
-        .h-group .g-sub span:nth-child(2) { text-align: center; }
-        .h-group .g-sub span:nth-child(3) { text-align: right; }
-
-        .tbody {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .row {
-          display: grid;
-          grid-template-columns: minmax(260px, 1fr) 160px repeat(3, 1fr);
-          padding: 12px 16px;
-          align-items: center;
-          border-bottom: 1px solid var(--line2);
-          transition: background 0.12s ease;
-        }
-
-        .row:hover {
-          background: #fafbfd;
-        }
-
-        .row:last-child {
-          border-bottom: none;
-        }
-
-        .c-name {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .c-role {
-          color: #64748b;
-          text-align: center;
-        }
-
-        .nm {
-          font-weight: 600;
-        }
-
-        .grp {
-          padding: 0 10px;
-        }
-
-        .nums {
-          display: grid;
-          grid-template-columns: 1fr 1fr 60px;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .zero-days {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        .n {
-          font-weight: 600;
-          font-size: 14px;
-        }
-
-        .n.days {
-          background: #ef4444;
-          color: white;
-          padding: 6px 12px;
-          border-radius: 8px;
-          font-weight: 700;
-          font-size: 14px;
-          min-width: 40px;
-        }
-
-        .n.achieved {
-          text-align: left;
-          justify-self: start;
-        }
-
-        .n.target {
-          text-align: center;
-          justify-self: center;
-        }
-
-        .n.pct {
-          text-align: right;
-          justify-self: end;
-          font-size: 13px;
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-
-        .n.pct.low {
-          color: var(--low);
-          background: #fef2f2;
-        }
-
-        .n.pct.warn {
-          color: var(--warn);
-          background: #fffbeb;
-        }
-
-        .n.pct.good {
-          color: var(--good);
-          background: #f0fdf4;
-        }
-
-        .clickable {
-          cursor: pointer;
-          transition: all 0.2s ease;
-          padding: 2px 4px;
-          border-radius: 4px;
-        }
-
-        .clickable:hover {
-          background: #f8fafc;
-          transform: scale(1.05);
-        }
-
-        .badge {
-          font-size: 11px;
-          border-radius: 999px;
-          padding: 4px 10px;
-          border: 1px solid var(--line);
-        }
-
-        .badge.am {
-          background: #fff7ed;
-        }
-
-        .badge.flap {
-          background: #fffdea;
         }
 
         .no-issues {
           text-align: center;
-          padding: 40px 20px;
-          color: #6b7280;
+          color: #64748b;
+          font-style: italic;
+          padding: 40px 0;
         }
 
-        /* Dietitians specific styling - IMPROVED */
-        .dietitians-list .thead {
-          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px minmax(200px, 1fr);
+        .issues-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
         }
 
-        .dietitians-list .row {
-          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px minmax(200px, 1fr);
-        }
-
-        .dietitians-list .h-group.merged {
-          grid-column: span 1;
-        }
-
-        .dietitians-list .h-group .g-sub {
-          display: grid;
-          grid-template-columns: 1fr 1fr 80px;
-          gap: 12px;
-          font-size: 12px;
-          color: #94a3b8;
-        }
-
-        .dietitians-list .h-group .g-sub span {
-          text-align: center;
-        }
-
-        .dietitians-list .nums {
-          display: grid;
-          grid-template-columns: 1fr 1fr 80px;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .dietitians-list .n.achieved,
-        .dietitians-list .n.target,
-        .dietitians-list .n.pct {
-          text-align: center;
-          justify-self: center;
-        }
-
-        .dietitians-list .zero-days .n.days {
-          background: #ef4444;
-          color: white;
-          padding: 6px 12px;
+        .issue-item {
+          background: #f8fafc;
+          border: 1px solid #e5e7eb;
           border-radius: 8px;
-          font-weight: 700;
+          padding: 16px;
+        }
+
+        .issue-item-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .issue-item-name {
+          font-weight: 600;
+          color: #111827;
+          font-size: 16px;
+        }
+
+        .badge {
+          font-size: 12px;
+          border-radius: 999px;
+          padding: 4px 8px;
+          border: 1px solid #e5e7eb;
+        }
+
+        .badge.am {
+          background: #fff7ed;
+          color: #9a3412;
+        }
+
+        .badge.flap {
+          background: #fffdea;
+          color: #854d0e;
+        }
+
+        .badge.dietitian {
+          background: #ecfdf5;
+          color: #065f46;
+        }
+
+        .issue-item-metrics {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .metric-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           font-size: 14px;
-          min-width: 40px;
         }
 
-        /* Ensure proper alignment for all columns */
-        .dietitians-list .c-name,
-        .dietitians-list .c-role {
-          padding: 0 12px;
+        .metric-row span:first-child {
+          color: #64748b;
         }
 
-        .dietitians-list .grp {
-          padding: 0 12px;
+        .metric-row span:last-child {
+          font-weight: 500;
+          color: #111827;
+        }
+
+        .pct.low {
+          color: #dc2626;
+          font-weight: 600;
         }
       `}</style>
     </div>
   );
 }
 
-// Metrics Modal Component (same as main dashboard)
+// Metrics Modal Component
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;
   onClose: () => void;
@@ -1442,12 +1381,10 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Update active period when the period prop changes
   useEffect(() => {
     setActivePeriod(period);
   }, [period]);
 
-  // Fetch funnel data when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchFunnelData();
@@ -1656,7 +1593,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
           justify-content: space-between;
           align-items: center;
           padding: 20px 24px;
-          border-bottom: 1px solid var(--line);
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .modal-header h2 {
@@ -1683,7 +1620,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
         .modal-subheader {
           padding: 16px 24px;
           background: #f8fafc;
-          border-bottom: 1px solid var(--line);
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .user-info-modal {
@@ -1695,7 +1632,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
           display: flex;
           gap: 8px;
           padding: 20px 24px;
-          border-bottom: 1px solid var(--line);
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .period-btn {
@@ -1720,7 +1657,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
 
         .modal-section {
           padding: 20px 24px;
-          border-bottom: 1px solid var(--line);
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .modal-section:last-of-type {
@@ -1747,7 +1684,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
         .metrics-table td {
           padding: 12px;
           text-align: center;
-          border: 1px solid var(--line);
+          border: 1px solid #e5e7eb;
         }
 
         .metrics-table th {
@@ -1762,7 +1699,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
 
         .modal-actions {
           padding: 20px 24px;
-          border-top: 1px solid var(--line);
+          border-top: 1px solid #e5e7eb;
           display: flex;
           justify-content: flex-end;
         }
