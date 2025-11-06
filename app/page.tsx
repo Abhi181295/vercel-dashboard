@@ -202,7 +202,6 @@ type SM = {
   role: 'SM';
   metrics: RevenueMetrics;
   children: Manager[];
-  // NEW: EMs directly under SM
   ems?: Leaf[];
   targets: {
     service: number;
@@ -256,7 +255,6 @@ function metric(a: number, t: number, isSales: boolean = false): Metric {
   return { achieved: a, target: t, pct: pct(a, t) };
 }
 
-// UPDATED: accept ems and attach under SM
 function buildHierarchy(
   sms: UserWithTargets[],
   managers: UserWithTargets[],
@@ -298,7 +296,6 @@ function buildHierarchy(
     }
   }]));
 
-  // Assign managers to SMs
   managers.forEach(manager => {
     if (manager.smId && smMap.has(manager.smId)) {
       const sm = smMap.get(manager.smId)!;
@@ -307,7 +304,6 @@ function buildHierarchy(
     }
   });
 
-  // Assign AMs to Managers or directly to SMs if no manager
   ams.forEach(am => {
     if (am.managerId && managerMap.has(am.managerId)) {
       const manager = managerMap.get(am.managerId)!;
@@ -366,7 +362,6 @@ function buildHierarchy(
     }
   });
 
-  // NEW: Attach EMs directly under SM
   ems.forEach(em => {
     if (em.smId && smMap.has(em.smId)) {
       const sm = smMap.get(em.smId)!;
@@ -388,11 +383,9 @@ function buildHierarchy(
     }
   });
 
-  // Convert to array
   return Array.from(smMap.values());
 }
 
-// Modal Component
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;
   onClose: () => void;
@@ -406,12 +399,10 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Update active period when the period prop changes
   useEffect(() => {
     setActivePeriod(period);
   }, [period]);
 
-  // Fetch funnel data when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchFunnelData();
@@ -438,31 +429,15 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
 
   if (!isOpen) return null;
 
-  const periodLabels = {
-    y: 'Yesterday',
-    w: 'WTD (Week to Date)',
-    m: 'MTD (Month to Date)'
-  };
-
-  const periodMap = {
-    y: 'ytd',
-    w: 'wtd', 
-    m: 'mtd'
-  } as const;
+  const periodLabels = { y: 'Yesterday', w: 'WTD (Week to Date)', m: 'MTD (Month to Date)' };
+  const periodMap = { y: 'ytd', w: 'wtd', m: 'mtd' } as const;
 
   const currentPeriod = periodMap[activePeriod];
   const rawData = funnelData?.rawTallies?.[currentPeriod];
   const metricsData = funnelData?.metrics?.[currentPeriod];
 
-  const formatNumber = (num: number) => {
-    if (num === 0) return '-';
-    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
-  };
-
-  const formatPercentage = (num: number) => {
-    if (num === 0) return '-';
-    return `${(num * 100).toFixed(1)}%`;
-  };
+  const formatNumber = (num: number) => (num === 0 ? '-' : Number.isInteger(num) ? num.toString() : num.toFixed(1));
+  const formatPercentage = (num: number) => (num === 0 ? '-' : `${(num * 100).toFixed(1)}%`);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -480,38 +455,17 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
         </div>
 
         <div className="period-selector">
-          <button
-            className={`period-btn ${activePeriod === 'y' ? 'active' : ''}`}
-            onClick={() => setActivePeriod('y')}
-          >
-            Yesterday
-          </button>
-          <button
-            className={`period-btn ${activePeriod === 'w' ? 'active' : ''}`}
-            onClick={() => setActivePeriod('w')}
-          >
-            WTD
-          </button>
-          <button
-            className={`period-btn ${activePeriod === 'm' ? 'active' : ''}`}
-            onClick={() => setActivePeriod('m')}
-          >
-            MTD
-          </button>
+          <button className={`period-btn ${activePeriod === 'y' ? 'active' : ''}`} onClick={() => setActivePeriod('y')}>Yesterday</button>
+          <button className={`period-btn ${activePeriod === 'w' ? 'active' : ''}`} onClick={() => setActivePeriod('w')}>WTD</button>
+          <button className={`period-btn ${activePeriod === 'm' ? 'active' : ''}`} onClick={() => setActivePeriod('m')}>MTD</button>
         </div>
 
-        {loading && (
-          <div className="modal-loading">
-            <div className="loading">Loading funnel data...</div>
-          </div>
-        )}
+        {loading && <div className="modal-loading"><div className="loading">Loading funnel data...</div></div>}
 
         {error && (
           <div className="modal-error">
             <div className="error">{error}</div>
-            <button className="btn" onClick={fetchFunnelData} style={{ marginTop: '16px' }}>
-              Retry
-            </button>
+            <button className="btn" onClick={fetchFunnelData} style={{ marginTop: '16px' }}>Retry</button>
           </div>
         )}
 
@@ -523,15 +477,8 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                 <table>
                   <thead>
                     <tr>
-                      <th>Team Size</th>
-                      <th>Calls</th>
-                      <th>Connected</th>
-                      <th>Talktime (hrs)</th>
-                      <th>Leads</th>
-                      <th>Total Links</th>
-                      <th>Sales Links</th>
-                      <th>Conv</th>
-                      <th>Sales Conv</th>
+                      <th>Team Size</th><th>Calls</th><th>Connected</th><th>Talktime (hrs)</th>
+                      <th>Leads</th><th>Total Links</th><th>Sales Links</th><th>Conv</th><th>Sales Conv</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -557,14 +504,9 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                 <table>
                   <thead>
                     <tr>
-                      <th>Call per Dt. per day</th>
-                      <th>Connectivity %</th>
-                      <th>TT per connected call (min)</th>
-                      <th>Leads per Dt. per day</th>
-                      <th>Lead % vs Connected Call</th>
-                      <th>Might Pay %</th>
-                      <th>Conv %</th>
-                      <th>Sales Team Conv %</th>
+                      <th>Call per Dt. per day</th><th>Connectivity %</th><th>TT per connected call (min)</th>
+                      <th>Leads per Dt. per day</th><th>Lead % vs Connected Call</th>
+                      <th>Might Pay %</th><th>Conv %</th><th>Sales Team Conv %</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -606,9 +548,8 @@ function DashboardPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false); // New state for refresh
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState({
     userName: '',
@@ -617,7 +558,6 @@ function DashboardPage() {
     revType: 'service' as 'service' | 'commerce'
   });
 
-  // Helper function to get cookie value
   const getCookie = (name: string) => {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -625,7 +565,6 @@ function DashboardPage() {
     return '';
   };
 
-  // Check authentication on component mount
   useEffect(() => {
     const checkAuth = () => {
       const hasCookie = document.cookie.includes('isAuthenticated=true');
@@ -633,7 +572,6 @@ function DashboardPage() {
       const authenticated = hasCookie || hasLocalStorage;
       
       if (authenticated) {
-        // Get user info from cookies/localStorage
         const email = localStorage.getItem('userEmail') || getCookie('userEmail');
         const name = localStorage.getItem('userName') || decodeURIComponent(getCookie('userName') || '');
         const role = localStorage.getItem('userRole') || getCookie('userRole');
@@ -653,36 +591,19 @@ function DashboardPage() {
     setTimeout(checkAuth, 100);
   }, [router]);
 
-  // Load data function that can be called independently
   const loadData = async () => {
     try {
       setLoading(true);
-      
       const response = await fetch('/api/hierarchy');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
-      }
-      
-      // UPDATED: read ems as well
+      if (!response.ok) throw new Error('Failed to fetch data');
       const { sms, managers, ams, ems } = await response.json();
-      
-      // Filter data based on user role
       let filteredData = sms;
       if (userRole === 'sm') {
-        // For SM users, only show their own data
-        filteredData = sms.filter((sm: UserWithTargets) => 
-          sm.name.toLowerCase() === userName.toLowerCase()
-        );
+        filteredData = sms.filter((sm: UserWithTargets) => sm.name.toLowerCase() === userName.toLowerCase());
       }
-      
-      // UPDATED: pass ems into hierarchy
       const hierarchy = buildHierarchy(filteredData, managers, ams, ems || []);
       setData(hierarchy as any);
-      
-      if (hierarchy.length > 0) {
-        setSelectedSM(hierarchy[0] as any);
-      }
+      if (hierarchy.length > 0) setSelectedSM(hierarchy[0] as any);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load data from Google Sheets. Please check your connection and try again.');
@@ -691,13 +612,11 @@ function DashboardPage() {
     }
   };
 
-  // Fetch data on component mount after authentication
   useEffect(() => {
     if (!isAuthenticated) return;
     loadData();
   }, [isAuthenticated, userRole, userName]);
 
-  // Improved refresh function
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -705,42 +624,28 @@ function DashboardPage() {
   };
 
   const handleLogout = () => {
-    // Clear all auth cookies
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'userEmail=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'userName=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    
-    // Clear localStorage
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('userRole');
-    
     router.push('/login');
   };
 
   const managersToDisplay = useMemo(() => {
-    if (selectedManager) {
-      return [selectedManager];
-    } else if (selectedSM) {
-      return selectedSM.children || [];
-    }
+    if (selectedManager) return [selectedManager];
+    else if (selectedSM) return selectedSM.children || [];
     return [];
   }, [selectedSM, selectedManager]);
 
-  // NEW: EMs to display (always under the selected SM)
-  const emsToDisplay = useMemo(() => {
-    if (selectedSM) return selectedSM.ems || [];
-    return [];
-  }, [selectedSM]);
+  const emsToDisplay = useMemo(() => (selectedSM ? selectedSM.ems || [] : []), [selectedSM]);
 
   const filteredAMs = useMemo(() => {
-    if (selectedManager) {
-      return selectedManager.children || [];
-    } else if (selectedSM) {
-      return (selectedSM.children || []).flatMap((m: Manager) => m.children || []);
-    }
+    if (selectedManager) return selectedManager.children || [];
+    else if (selectedSM) return (selectedSM.children || []).flatMap((m: Manager) => m.children || []);
     return [];
   }, [selectedSM, selectedManager]);
 
@@ -755,74 +660,40 @@ function DashboardPage() {
       setSelectedManager(null);
       return;
     }
-    
     const manager = selectedSM?.children?.find((m: Manager) => m.id === managerId) || null;
     setSelectedManager(manager);
   };
 
   const handleMetricClick = (userName: string, userRole: string, period: 'y' | 'w' | 'm') => {
-    setModalData({
-      userName,
-      userRole,
-      period,
-      revType
-    });
+    setModalData({ userName, userRole, period, revType });
     setModalOpen(true);
   };
 
-  // Show loading while checking authentication
   if (isAuthenticated === null) {
-    return (
-      <div className="crm-root">
-        <div className="loading-full">Checking authentication...</div>
-      </div>
-    );
+    return <div className="crm-root"><div className="loading-full">Checking authentication...</div></div>;
   }
-
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   if (loading && !refreshing) {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
-          <div className="brand">
-            <span className="brand-main">Fitelo</span>{' '}
-            <span className="brand-sub">SM Dashboard</span>
-            <span className="zap">⚡</span>
-          </div>
-
+          <div className="brand"><span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span><span className="zap">⚡</span></div>
           <nav className="nav">
-            <a className="nav-item active" onClick={() => router.push('/')}>
-              <span className="i">🏠</span> Dashboard
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">👥</span> Revenue
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">✅</span> Quality
-            </a>
-            <a className="nav-item" onClick={() => router.push('/issues')}>
-              <span className="i">🛠️</span> Issues
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">📊</span> Analytics
-            </a>
+            <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
+            <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
+            <a className="nav-item" onClick={() => router.push('/')}><span className="i">✅</span> Quality</a>
+            <a className="nav-item" onClick={() => router.push('/issues')}><span className="i">🛠️</span> Issues</a>
+            <a className="nav-item" onClick={() => router.push('/')}><span className="i">📊</span> Analytics</a>
           </nav>
-
           <div className="user-info">
             <div className="user-name">{userName}</div>
             <div className="user-role">{userRole === 'admin' ? 'Administrator' : 'Senior Manager'}</div>
             <div className="user-email">{userEmail}</div>
-            <button className="logout-btn" onClick={handleLogout}>
-              ⎋ Logout
-            </button>
+            <button className="logout-btn" onClick={handleLogout}>⎋ Logout</button>
           </div>
         </aside>
-        <section className="crm-main">
-          <div className="loading">Loading data from Google Sheets...</div>
-        </section>
+        <section className="crm-main"><div className="loading">Loading data from Google Sheets...</div></section>
       </div>
     );
   }
@@ -831,50 +702,26 @@ function DashboardPage() {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
-          <div className="brand">
-            <span className="brand-main">Fitelo</span>{' '}
-            <span className="brand-sub">SM Dashboard</span>
-            <span className="zap">⚡</span>
-          </div>
-
+          <div className="brand"><span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span><span className="zap">⚡</span></div>
           <nav className="nav">
-            <a className="nav-item active" onClick={() => router.push('/')}>
-              <span className="i">🏠</span> Dashboard
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">👥</span> Revenue
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">✅</span> Quality
-            </a>
-            <a className="nav-item" onClick={() => router.push('/issues')}>
-              <span className="i">🛠️</span> Issues
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">📊</span> Analytics
-            </a>
+            <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
+            <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
+            <a className="nav-item" onClick={() => router.push('/')}><span className="i">✅</span> Quality</a>
+            <a className="nav-item" onClick={() => router.push('/issues')}><span className="i">🛠️</span> Issues</a>
+            <a className="nav-item" onClick={() => router.push('/')}><span className="i">📊</span> Analytics</a>
           </nav>
-
           <div className="user-info">
             <div className="user-name">{userName}</div>
             <div className="user-role">{userRole === 'admin' ? 'Administrator' : 'Senior Manager'}</div>
             <div className="user-email">{userEmail}</div>
-            <button className="logout-btn" onClick={handleLogout}>
-              ⎋ Logout
-            </button>
+            <button className="logout-btn" onClick={handleLogout}>⎋ Logout</button>
           </div>
         </aside>
         <section className="crm-main">
           <div className="error">
             <h2>Error Loading Data</h2>
             <p>{error}</p>
-            <button 
-              className="btn" 
-              onClick={() => window.location.reload()}
-              style={{ marginTop: '16px' }}
-            >
-              Try Again
-            </button>
+            <button className="btn" onClick={() => window.location.reload()} style={{ marginTop: '16px' }}>Try Again</button>
           </div>
         </section>
       </div>
@@ -884,37 +731,19 @@ function DashboardPage() {
   return (
     <div className="crm-root">
       <aside className="crm-aside">
-        <div className="brand">
-          <span className="brand-main">Fitelo</span>{' '}
-          <span className="brand-sub">SM Dashboard</span>
-          <span className="zap">⚡</span>
-        </div>
-
+        <div className="brand"><span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span><span className="zap">⚡</span></div>
         <nav className="nav">
-          <a className="nav-item active" onClick={() => router.push('/')}>
-            <span className="i">🏠</span> Dashboard
-          </a>
-          <a className="nav-item" onClick={() => router.push('/')}>
-            <span className="i">👥</span> Revenue
-          </a>
-          <a className="nav-item" onClick={() => router.push('/')}>
-            <span className="i">✅</span> Quality
-          </a>
-          <a className="nav-item" onClick={() => router.push('/issues')}>
-            <span className="i">🛠️</span> Issues
-          </a>
-          <a className="nav-item" onClick={() => router.push('/')}>
-            <span className="i">📊</span> Analytics
-          </a>
+          <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
+          <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
+          <a className="nav-item" onClick={() => router.push('/')}><span className="i">✅</span> Quality</a>
+          <a className="nav-item" onClick={() => router.push('/issues')}><span className="i">🛠️</span> Issues</a>
+          <a className="nav-item" onClick={() => router.push('/')}><span className="i">📊</span> Analytics</a>
         </nav>
-
         <div className="user-info">
           <div className="user-name">{userName}</div>
           <div className="user-role">{userRole === 'admin' ? 'Administrator' : 'Senior Manager'}</div>
           <div className="user-email">{userEmail}</div>
-          <button className="logout-btn" onClick={handleLogout}>
-            ⎋ Logout
-          </button>
+          <button className="logout-btn" onClick={handleLogout}>⎋ Logout</button>
         </div>
       </aside>
 
@@ -924,16 +753,8 @@ function DashboardPage() {
             <h1 className="title">Revenue Management</h1>
             <p className="subtitle">Live data from Google Sheets</p>
           </div>
-
           <div className="actions">
-            <button 
-              className="btn" 
-              title="Refresh" 
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
-              {refreshing ? 'Refreshing...' : '⟲ Refresh'}
-            </button>
+            <button className="btn" title="Refresh" onClick={handleRefresh} disabled={refreshing}>{refreshing ? 'Refreshing...' : '⟲ Refresh'}</button>
             <button className="btn" title="Export CSV">⬇ Export CSV</button>
             <button className="btn" title="Show Filters">⚲ Show Filters</button>
           </div>
@@ -943,31 +764,18 @@ function DashboardPage() {
           {userRole === 'admin' && (
             <div className="select-group">
               <label className="select-label">Select SM:</label>
-              <select 
-                className="select" 
-                value={selectedSM?.id || ''}
-                onChange={(e) => handleSMChange(e.target.value)}
-              >
+              <select className="select" value={selectedSM?.id || ''} onChange={(e) => handleSMChange(e.target.value)}>
                 <option value="">-- Select SM --</option>
-                {data.map(sm => (
-                  <option key={sm.id} value={sm.id}>{sm.name}</option>
-                ))}
+                {data.map(sm => (<option key={sm.id} value={sm.id}>{sm.name}</option>))}
               </select>
             </div>
           )}
 
           <div className="select-group">
             <label className="select-label">Select Manager:</label>
-            <select 
-              className="select" 
-              value={selectedManager?.id || ''}
-              onChange={(e) => handleManagerChange(e.target.value)}
-              disabled={!selectedSM}
-            >
+            <select className="select" value={selectedManager?.id || ''} onChange={(e) => handleManagerChange(e.target.value)} disabled={!selectedSM}>
               <option value="">-- All Managers --</option>
-              {selectedSM?.children?.map((manager: Manager) => (
-                <option key={manager.id} value={manager.id}>{manager.name}</option>
-              ))}
+              {selectedSM?.children?.map((manager: Manager) => (<option key={manager.id} value={manager.id}>{manager.name}</option>))}
             </select>
           </div>
         </div>
@@ -980,20 +788,8 @@ function DashboardPage() {
         )}
 
         <div className="rev-toggle">
-          <button
-            className={`rev-pill ${revType === 'service' ? 'active' : ''}`}
-            onClick={() => setRevType('service')}
-            title="Show Service revenue metrics"
-          >
-            Service Revenue
-          </button>
-          <button
-            className={`rev-pill ${revType === 'commerce' ? 'active' : ''}`}
-            onClick={() => setRevType('commerce')}
-            title="Show Commerce revenue metrics"
-          >
-            Commerce Revenue
-          </button>
+          <button className={`rev-pill ${revType === 'service' ? 'active' : ''}`} onClick={() => setRevType('service')} title="Show Service revenue metrics">Service Revenue</button>
+          <button className={`rev-pill ${revType === 'commerce' ? 'active' : ''}`} onClick={() => setRevType('commerce')} title="Show Commerce revenue metrics">Commerce Revenue</button>
         </div>
 
         {selectedSM && (
@@ -1002,37 +798,21 @@ function DashboardPage() {
             <div className="card">
               <div className="sm-data">
                 <div className="sm-header">
-                  <div className="sm-name">
-                    <span className="nm">{selectedSM.name}</span>
-                    <span className="badge sm">SM</span>
-                  </div>
+                  <div className="sm-name"><span className="nm">{selectedSM.name}</span><span className="badge sm">SM</span></div>
                   <div className="sm-role">Senior Manager</div>
                 </div>
-                
                 <div className="metrics-grid">
                   <div className="metric-group">
                     <div className="period-title">Yesterday</div>
-                    <Metrics 
-                      m={selectedSM.metrics[revType].y} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'y')}
-                    />
+                    <Metrics m={selectedSM.metrics[revType].y} isSales={revType === 'service'} onClick={() => handleMetricClick(selectedSM.name, 'SM', 'y')} />
                   </div>
                   <div className="metric-group">
                     <div className="period-title">WTD</div>
-                    <Metrics 
-                      m={selectedSM.metrics[revType].w} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'w')}
-                    />
+                    <Metrics m={selectedSM.metrics[revType].w} isSales={revType === 'service'} onClick={() => handleMetricClick(selectedSM.name, 'SM', 'w')} />
                   </div>
                   <div className="metric-group">
                     <div className="period-title">MTD</div>
-                    <Metrics 
-                      m={selectedSM.metrics[revType].m} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'm')}
-                    />
+                    <Metrics m={selectedSM.metrics[revType].m} isSales={revType === 'service'} onClick={() => handleMetricClick(selectedSM.name, 'SM', 'm')} />
                   </div>
                 </div>
               </div>
@@ -1051,52 +831,54 @@ function DashboardPage() {
                   <div className="h-title">Manager Name</div>
                   <div className="h-sub">Reporting to {selectedSM.name}</div>
                 </div>
-                <div className="h-role">
-                  <div className="h-title">Role</div>
-                </div>
-                <div className="h-group merged">
+                <div className="h-role"><div className="h-title">Role</div></div>
+
+                {/* HEADER GROUPS GET LIGHT TINTS */}
+                <div className="h-group merged h-period h-y">
                   <div className="g-title">Yesterday</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
+                  <div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div>
                 </div>
-                <div className="h-group merged">
+                <div className="h-group merged h-period h-w">
                   <div className="g-title">WTD</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
+                  <div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div>
                 </div>
-                <div className="h-group merged">
+                <div className="h-group merged h-period h-m">
                   <div className="g-title">MTD</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
+                  <div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div>
                 </div>
               </div>
 
               <div className="tbody">
                 {managersToDisplay.map(manager => (
                   <div key={manager.id} className="row">
-                    <div className="c-name">
-                      <span className="nm">{manager.name}</span>
-                      <span className="badge m">M</span>
-                    </div>
+                    <div className="c-name"><span className="nm">{manager.name}</span><span className="badge m">M</span></div>
                     <div className="c-role">Manager</div>
-                    <Metrics 
-                      m={manager.metrics[revType].y} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}
-                    />
-                    <Metrics 
-                      m={manager.metrics[revType].w} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}
-                    />
-                    <Metrics 
-                      m={manager.metrics[revType].m} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}
-                    />
+
+                    {/* ROW GROUPS GET MATCHING LIGHT TINTS */}
+                    <div className="grp grp-y">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>{fmtLakhs((manager.metrics[revType].y.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>{fmtLakhs((manager.metrics[revType].y.target as number) * 100000)}</div>
+                        <div className={`n pct ${manager.metrics[revType].y.pct >= 80 ? 'good' : manager.metrics[revType].y.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>{manager.metrics[revType].y.pct}%</div>
+                      </div>
+                    </div>
+
+                    <div className="grp grp-w">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>{fmtLakhs((manager.metrics[revType].w.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>{fmtLakhs((manager.metrics[revType].w.target as number) * 100000)}</div>
+                        <div className={`n pct ${manager.metrics[revType].w.pct >= 80 ? 'good' : manager.metrics[revType].w.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>{manager.metrics[revType].w.pct}%</div>
+                      </div>
+                    </div>
+
+                    <div className="grp grp-m">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>{fmtLakhs((manager.metrics[revType].m.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>{fmtLakhs((manager.metrics[revType].m.target as number) * 100000)}</div>
+                        <div className={`n pct ${manager.metrics[revType].m.pct >= 80 ? 'good' : manager.metrics[revType].m.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>{manager.metrics[revType].m.pct}%</div>
+                      </div>
+                    </div>
+
                   </div>
                 ))}
               </div>
@@ -1104,65 +886,48 @@ function DashboardPage() {
           </div>
         )}
 
-        {/* NEW: EMs list under the SM (parallel section, no CSS changes) */}
         {selectedSM && (selectedSM.ems?.length || 0) > 0 && (
           <div className="section">
-            <h2 className="section-title">
-              EMs under {selectedSM.name}
-            </h2>
+            <h2 className="section-title">EMs under {selectedSM.name}</h2>
             <div className="card">
               <div className="thead">
-                <div className="h-name">
-                  <div className="h-title">EM Name</div>
-                  <div className="h-sub">Executive Managers</div>
-                </div>
-                <div className="h-role">
-                  <div className="h-title">Role</div>
-                </div>
-                <div className="h-group merged">
-                  <div className="g-title">Yesterday</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
-                </div>
-                <div className="h-group merged">
-                  <div className="g-title">WTD</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
-                </div>
-                <div className="h-group merged">
-                  <div className="g-title">MTD</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
-                </div>
+                <div className="h-name"><div className="h-title">EM Name</div><div className="h-sub">Executive Managers</div></div>
+                <div className="h-role"><div className="h-title">Role</div></div>
+                <div className="h-group merged h-period h-y"><div className="g-title">Yesterday</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
+                <div className="h-group merged h-period h-w"><div className="g-title">WTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
+                <div className="h-group merged h-period h-m"><div className="g-title">MTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
               </div>
 
               <div className="tbody">
                 {emsToDisplay.map((em: Leaf) => (
                   <div key={em.id} className="row">
-                    <div className="c-name">
-                      <span className="nm">{em.name}</span>
-                      {/* reuse badge 'am' to avoid CSS change */}
-                      <span className="badge am">EM</span>
-                    </div>
+                    <div className="c-name"><span className="nm">{em.name}</span><span className="badge am">EM</span></div>
                     <div className="c-role">EM</div>
-                    <Metrics 
-                      m={em.metrics[revType].y} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(em.name, 'EM', 'y')}
-                    />
-                    <Metrics 
-                      m={em.metrics[revType].w} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(em.name, 'EM', 'w')}
-                    />
-                    <Metrics 
-                      m={em.metrics[revType].m} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(em.name, 'EM', 'm')}
-                    />
+
+                    <div className="grp grp-y">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'y')}>{fmtLakhs((em.metrics[revType].y.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'y')}>{fmtLakhs((em.metrics[revType].y.target as number) * 100000)}</div>
+                        <div className={`n pct ${em.metrics[revType].y.pct >= 80 ? 'good' : em.metrics[revType].y.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(em.name, 'EM', 'y')}>{em.metrics[revType].y.pct}%</div>
+                      </div>
+                    </div>
+
+                    <div className="grp grp-w">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'w')}>{fmtLakhs((em.metrics[revType].w.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'w')}>{fmtLakhs((em.metrics[revType].w.target as number) * 100000)}</div>
+                        <div className={`n pct ${em.metrics[revType].w.pct >= 80 ? 'good' : em.metrics[revType].w.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(em.name, 'EM', 'w')}>{em.metrics[revType].w.pct}%</div>
+                      </div>
+                    </div>
+
+                    <div className="grp grp-m">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'm')}>{fmtLakhs((em.metrics[revType].m.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'm')}>{fmtLakhs((em.metrics[revType].m.target as number) * 100000)}</div>
+                        <div className={`n pct ${em.metrics[revType].m.pct >= 80 ? 'good' : em.metrics[revType].m.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(em.name, 'EM', 'm')}>{em.metrics[revType].m.pct}%</div>
+                      </div>
+                    </div>
+
                   </div>
                 ))}
               </div>
@@ -1177,56 +942,43 @@ function DashboardPage() {
             </h2>
             <div className="card">
               <div className="thead">
-                <div className="h-name">
-                  <div className="h-title">AM/FLAP Name</div>
-                  <div className="h-sub">Team members</div>
-                </div>
-                <div className="h-role">
-                  <div className="h-title">Role</div>
-                </div>
-                <div className="h-group merged">
-                  <div className="g-title">Yesterday</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
-                </div>
-                <div className="h-group merged">
-                  <div className="g-title">WTD</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
-                </div>
-                <div className="h-group merged">
-                  <div className="g-title">MTD</div>
-                  <div className="g-sub">
-                    <span>Achieved</span><span>Target</span><span>%</span>
-                  </div>
-                </div>
+                <div className="h-name"><div className="h-title">AM/FLAP Name</div><div className="h-sub">Team members</div></div>
+                <div className="h-role"><div className="h-title">Role</div></div>
+                <div className="h-group merged h-period h-y"><div className="g-title">Yesterday</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
+                <div className="h-group merged h-period h-w"><div className="g-title">WTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
+                <div className="h-group merged h-period h-m"><div className="g-title">MTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
               </div>
 
               <div className="tbody">
                 {filteredAMs.map(am => (
                   <div key={am.id} className="row">
-                    <div className="c-name">
-                      <span className="nm">{am.name}</span>
-                      <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
-                    </div>
+                    <div className="c-name"><span className="nm">{am.name}</span><span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span></div>
                     <div className="c-role">{am.role === 'AM' ? 'Assistant Manager' : 'FLAP'}</div>
-                    <Metrics 
-                      m={am.metrics[revType].y} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(am.name, am.role, 'y')}
-                    />
-                    <Metrics 
-                      m={am.metrics[revType].w} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(am.name, am.role, 'w')}
-                    />
-                    <Metrics 
-                      m={am.metrics[revType].m} 
-                      isSales={revType === 'service'}
-                      onClick={() => handleMetricClick(am.name, am.role, 'm')}
-                    />
+
+                    <div className="grp grp-y">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'y')}>{fmtLakhs((am.metrics[revType].y.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'y')}>{fmtLakhs((am.metrics[revType].y.target as number) * 100000)}</div>
+                        <div className={`n pct ${am.metrics[revType].y.pct >= 80 ? 'good' : am.metrics[revType].y.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(am.name, am.role, 'y')}>{am.metrics[revType].y.pct}%</div>
+                      </div>
+                    </div>
+
+                    <div className="grp grp-w">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'w')}>{fmtLakhs((am.metrics[revType].w.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'w')}>{fmtLakhs((am.metrics[revType].w.target as number) * 100000)}</div>
+                        <div className={`n pct ${am.metrics[revType].w.pct >= 80 ? 'good' : am.metrics[revType].w.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(am.name, am.role, 'w')}>{am.metrics[revType].w.pct}%</div>
+                      </div>
+                    </div>
+
+                    <div className="grp grp-m">
+                      <div className="nums">
+                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'm')}>{fmtLakhs((am.metrics[revType].m.achieved as number) * 100000)}</div>
+                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'm')}>{fmtLakhs((am.metrics[revType].m.target as number) * 100000)}</div>
+                        <div className={`n pct ${am.metrics[revType].m.pct >= 80 ? 'good' : am.metrics[revType].m.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(am.name, am.role, 'm')}>{am.metrics[revType].m.pct}%</div>
+                      </div>
+                    </div>
+
                   </div>
                 ))}
               </div>
@@ -1256,110 +1008,22 @@ function DashboardPage() {
       </section>
 
       <style jsx global>{`
-        .loading-full {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-          font-size: 18px;
-          color: #64748b;
-        }
-
-        .loading, .error, .no-data {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 200px;
-          font-size: 18px;
-          color: var(--muted);
-          text-align: center;
-        }
-        
-        .error {
-          color: #ef4444;
-        }
-        
-        .error h2 {
-          margin: 0 0 8px 0;
-          color: #dc2626;
-        }
-        
-        .error p {
-          margin: 0 0 16px 0;
-          max-width: 400px;
-          line-height: 1.5;
-        }
-        
-        .no-data h3 {
-          margin: 0 0 8px 0;
-          color: var(--text);
-        }
-        
-        .no-data p {
-          margin: 0;
-          color: var(--muted);
-        }
-
-        .user-info {
-          margin-top: auto;
-          padding: 16px;
-          border-top: 1px solid var(--line);
-          text-align: center;
-        }
-
-        .user-name {
-          font-weight: 600;
-          color: var(--text);
-        }
-
-        .user-role {
-          font-size: 12px;
-          color: var(--muted);
-          margin-top: 4px;
-        }
-
-        .user-email {
-          font-size: 11px;
-          color: var(--muted);
-          margin-top: 2px;
-          margin-bottom: 12px;
-        }
-
-        .logout-btn {
-          width: 100%;
-          background: #ef4444;
-          color: white;
-          border: none;
-          padding: 8px 12px;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .logout-btn:hover {
-          background: #dc2626;
-        }
-
-        .user-welcome {
-          background: var(--card);
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          padding: 16px;
-          margin-bottom: 16px;
-        }
-
-        .user-welcome h3 {
-          margin: 0 0 4px 0;
-          color: var(--text);
-          font-size: 16px;
-        }
-
-        .user-welcome p {
-          margin: 0;
-          color: var(--muted);
-          font-size: 14px;
-        }
+        .loading-full{display:flex;justify-content:center;align-items:center;height:100vh;font-size:18px;color:#64748b}
+        .loading,.error,.no-data{display:flex;flex-direction:column;justify-content:center;align-items:center;height:200px;font-size:18px;color:var(--muted);text-align:center}
+        .error{color:#ef4444}
+        .error h2{margin:0 0 8px 0;color:#dc2626}
+        .error p{margin:0 0 16px 0;max-width:400px;line-height:1.5}
+        .no-data h3{margin:0 0 8px 0;color:var(--text)}
+        .no-data p{margin:0;color:var(--muted)}
+        .user-info{margin-top:auto;padding:16px;border-top:1px solid var(--line);text-align:center}
+        .user-name{font-weight:600;color:var(--text)}
+        .user-role{font-size:12px;color:var(--muted);margin-top:4px}
+        .user-email{font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:12px}
+        .logout-btn{width:100%;background:#ef4444;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px}
+        .logout-btn:hover{background:#dc2626}
+        .user-welcome{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+        .user-welcome h3{margin:0 0 4px 0;color:var(--text);font-size:16px}
+        .user-welcome p{margin:0;color:var(--muted);font-size:14px}
       `}</style>
       <style jsx global>{CSS}</style>
     </div>
@@ -1367,18 +1031,8 @@ function DashboardPage() {
 }
 
 function Metrics({ m, isSales = false, onClick }: { m: Metric; isSales?: boolean; onClick?: () => void }) {
-  const formatValue = (value: number) => {
-    if (isSales) {
-      return fmtLakhs(value * 100000);
-    }
-    return fmt(value);
-  };
-
-  const getPercentageColor = (pct: number) => {
-    if (pct >= 80) return 'good';
-    if (pct >= 50) return 'warn';
-    return 'low';
-  };
+  const formatValue = (value: number) => (isSales ? fmtLakhs(value * 100000) : fmt(value));
+  const getPercentageColor = (pct: number) => (pct >= 80 ? 'good' : pct >= 50 ? 'warn' : 'low');
 
   return (
     <div className="grp">
@@ -1404,6 +1058,23 @@ const CSS = `
   --good:#16a34a;
   --warn:#f59e0b;
   --low:#dc2626;
+
+  /* Accents for period blocks */
+  --acc1-bg:#f0fdf4;  --acc1-br:#bbf7d0;         /* Yesterday: green */
+  --acc2-bg:#eef6ff;  --acc2-br:#cfe5ff;         /* WTD: blue */
+  --acc3-bg:#f6f0ff;  --acc3-br:#e4d4ff;         /* MTD: purple */
+
+  /* Pills */
+  --pill-bg:#f8fafc;
+  --pill-br:#e5e7eb;
+
+  /* Softer table cell tints (lighter than cards) */
+  --acc1-bg-soft: rgba(22,163,74,0.05);
+  --acc2-bg-soft: rgba(59,130,246,0.05);
+  --acc3-bg-soft: rgba(139,92,246,0.05);
+  --acc1-br-soft: rgba(22,163,74,0.12);
+  --acc2-br-soft: rgba(59,130,246,0.12);
+  --acc3-br-soft: rgba(139,92,246,0.12);
 }
 
 *{box-sizing:border-box}
@@ -1411,14 +1082,14 @@ html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
 
 .crm-root{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
-.crm-aside{background:#ffffff;border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column}
+.crm-aside{background:#fff;border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column}
 .brand{font-weight:700;font-size:18px;margin:4px 6px 14px}
 .brand-main{color:#111827}
 .brand-sub{color:#f97316;margin-left:6px}
 .zap{margin-left:6px}
 
 .nav{display:flex;flex-direction:column;gap:4px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:10px;color:#0f172a;text-decoration:none;cursor:pointer}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;color:#0f172a;text-decoration:none;cursor:pointer}
 .nav-item:hover{background:#f3f4f6}
 .nav-item.active{background:#eef2ff}
 
@@ -1433,7 +1104,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .btn-secondary{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
 .btn-secondary:hover{background:#f8fafc}
 
-/* Selection dropdowns */
+/* Selection */
 .selection-row{display:flex;gap:20px;align-items:end}
 .select-group{display:flex;flex-direction:column;gap:6px}
 .select-label{font-size:13px;font-weight:600;color:#374151}
@@ -1441,7 +1112,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .select:focus{border-color:#cbd5e1}
 .select:disabled{background:#f9fafb;color:#6b7280}
 
-/* Revenue toggle pills */
+/* Revenue toggle */
 .rev-toggle{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
 .rev-pill{background:#fff;border:1px solid var(--line);color:#0f172a;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 1px 0 rgba(15,23,42,.04)}
 .rev-pill.active{background:#0f172a;color:#fff;border-color:#0f172a}
@@ -1456,13 +1127,21 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .sm-name{display:flex;align-items:center;gap:10px}
 .metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 
-.metric-group{border:1px solid var(--line2);border-radius:10px;padding:12px}
-.period-title{font-size:14px;font-weight:600;color:#374151;margin-bottom:8px;text-align:center}
+/* >>> Enhanced metric blocks (Yesterday/WTD/MTD) <<< */
+.metric-group{border:1px solid var(--line2);border-radius:14px;padding:14px;position:relative;overflow:hidden;background:#fff;box-shadow:0 1px 0 rgba(15,23,42,0.02);transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease}
+.metric-group:nth-child(1){border-left:6px solid var(--acc1-br);background:linear-gradient(180deg,var(--acc1-bg),#ffffff)}
+.metric-group:nth-child(2){border-left:6px solid var(--acc2-br);background:linear-gradient(180deg,var(--acc2-bg),#ffffff)}
+.metric-group:nth-child(3){border-left:6px solid var(--acc3-br);background:linear-gradient(180deg,var(--acc3-bg),#ffffff)}
+.metric-group:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(15,23,42,0.06)}
+.period-title{font-size:12px;font-weight:700;letter-spacing:.02em;color:#111827;margin-bottom:10px;text-align:center;display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line2);background:#fff}
+.metric-group:nth-child(1) .period-title{background:rgba(22,163,74,0.06);border-color:var(--acc1-br)}
+.metric-group:nth-child(2) .period-title{background:rgba(59,130,246,0.06);border-color:var(--acc2-br)}
+.metric-group:nth-child(3) .period-title{background:rgba(139,92,246,0.06);border-color:var(--acc3-br)}
 
 /* Table card */
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 
-/* Table header - IMPROVED ALIGNMENT */
+/* Table header */
 .thead,.row{display:grid;grid-template-columns:minmax(260px,1fr) 160px repeat(3, 1fr)}
 .thead{background:linear-gradient(180deg,#ffffff,#fbfbfb);border-bottom:1px solid var(--line2)}
 .h-name,.h-role,.h-group{padding:12px;text-align:center}
@@ -1471,6 +1150,11 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .h-group.merged{grid-column:span 1}
 .h-group .g-title{font-size:12px;text-transform:uppercase;letter-spacing:.02em;color:#111827;font-weight:700;margin-bottom:4px}
 .h-group .g-sub{display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;font-size:12px;color:#94a3b8}
+
+/* >>> NEW: Light period tints in table headers <<< */
+.h-period.h-y{background:var(--acc1-bg-soft);border-left:4px solid var(--acc1-br-soft)}
+.h-period.h-w{background:var(--acc2-bg-soft);border-left:4px solid var(--acc2-br-soft)}
+.h-period.h-m{background:var(--acc3-bg-soft);border-left:4px solid var(--acc3-br-soft)}
 
 /* Rows */
 .tbody{display:flex;flex-direction:column}
@@ -1482,15 +1166,21 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 
 .nm{font-weight:600}
 
+/* Numbers */
 .grp{padding:0 10px;text-align:center}
 .nums{display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;align-items:center}
-.n{font-weight:600}
+.n{font-weight:700;background:var(--pill-bg);border:1px solid var(--pill-br);border-radius:10px;padding:6px 8px;line-height:1.2;box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)}
 .n.pct{justify-self:end}
-.n.pct.low{color:var(--low)}
-.n.pct.warn{color:var(--warn)}
-.n.pct.good{color:var(--good)}
-.clickable{cursor:pointer;transition:all 0.2s ease}
-.clickable:hover{transform:scale(1.05);background:#f8fafc;border-radius:4px;padding:2px 4px}
+.n.pct.low{color:var(--low);border-color:#fecaca;background:#fff1f2}
+.n.pct.warn{color:var(--warn);border-color:#fde68a;background:#fffbeb}
+.n.pct.good{color:var(--good);border-color:#bbf7d0;background:#f0fdf4}
+.clickable{cursor:pointer;transition:all 0.16s ease}
+.clickable:hover{transform:scale(1.05)}
+
+/* >>> NEW: Light period tints in table rows (cells) <<< */
+.row .grp-y .n{background:var(--acc1-bg-soft);border-color:var(--acc1-br-soft)}
+.row .grp-w .n{background:var(--acc2-bg-soft);border-color:var(--acc2-br-soft)}
+.row .grp-m .n{background:var(--acc3-bg-soft);border-color:var(--acc3-br-soft)}
 
 /* Badges */
 .badge{font-size:11px;border-radius:999px;padding:4px 10px;border:1px solid var(--line)}
@@ -1499,156 +1189,30 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .badge.am{background:#fff7ed}
 .badge.flap{background:#fffdea}
 
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 1200px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--line);
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #111827;
-  font-size: 20px;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #6b7280;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.modal-close:hover {
-  background: #f3f4f6;
-  color: #111827;
-}
-
-.modal-subheader {
-  padding: 16px 24px;
-  background: #f8fafc;
-  border-bottom: 1px solid var(--line);
-}
-
-.user-info-modal {
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.period-selector {
-  display: flex;
-  gap: 8px;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--line);
-}
-
-.period-btn {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.period-btn.active {
-  background: #111827;
-  color: white;
-  border-color: #111827;
-}
-
-.period-btn:hover:not(.active) {
-  background: #e5e7eb;
-}
-
-.modal-section {
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--line);
-}
-
-.modal-section:last-of-type {
-  border-bottom: none;
-}
-
-.modal-section h3 {
-  margin: 0 0 16px 0;
-  color: #111827;
-  font-size: 16px;
-}
-
-.metrics-table {
-  overflow-x: auto;
-}
-
-.metrics-table table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.metrics-table th,
-.metrics-table td {
-  padding: 12px;
-  text-align: center;
-  border: 1px solid var(--line);
-}
-
-.metrics-table th {
-  background: #f8fafc;
-  font-weight: 600;
-  color: #374151;
-}
-
-.metrics-table td {
-  color: #6b7280;
-}
-
-.modal-actions {
-  padding: 20px 24px;
-  border-top: 1px solid var(--line);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.modal-loading, .modal-error {
-  padding: 40px 24px;
-  text-align: center;
-}
-
-.modal-loading .loading, .modal-error .error {
-  height: auto;
-  margin: 0;
-}
+/* Modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:1000;padding:20px}
+.modal-content{background:#fff;border-radius:12px;width:100%;max-width:1200px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--line)}
+.modal-header h2{margin:0;color:#111827;font-size:20px}
+.modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;padding:4px;border-radius:4px}
+.modal-close:hover{background:#f3f4f6;color:#111827}
+.modal-subheader{padding:16px 24px;background:#f8fafc;border-bottom:1px solid var(--line)}
+.user-info-modal{font-size:14px;color:#6b7280}
+.period-selector{display:flex;gap:8px;padding:20px 24px;border-bottom:1px solid var(--line)}
+.period-btn{background:#f3f4f6;border:1px solid #d1d5db;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;transition:all 0.2s}
+.period-btn.active{background:#111827;color:#fff;border-color:#111827}
+.period-btn:hover:not(.active){background:#e5e7eb}
+.modal-section{padding:20px 24px;border-bottom:1px solid var(--line)}
+.modal-section:last-of-type{border-bottom:none}
+.modal-section h3{margin:0 0 16px 0;color:#111827;font-size:16px}
+.metrics-table{overflow-x:auto}
+.metrics-table table{width:100%;border-collapse:collapse;font-size:14px}
+.metrics-table th,.metrics-table td{padding:12px;text-align:center;border:1px solid var(--line)}
+.metrics-table th{background:#f8fafc;font-weight:600;color:#374151}
+.metrics-table td{color:#6b7280}
+.modal-actions{padding:20px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end}
+.modal-loading,.modal-error{padding:40px 24px;text-align:center}
+.modal-loading .loading,.modal-error .error{height:auto;margin:0}
 `;
 
 export default DashboardPage;
