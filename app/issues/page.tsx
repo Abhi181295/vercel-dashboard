@@ -504,6 +504,11 @@ export default function IssuesPage() {
     setIsPanelOpen(true);
   };
 
+  const handleClosePanel = () => {
+    setIsPanelOpen(false);
+    setSelectedIssue('');
+  };
+
   const handleMetricClick = (userName: string, userRole: string, period: 'y' | 'w' | 'm') => {
     setModalData({
       userName,
@@ -745,6 +750,102 @@ export default function IssuesPage() {
           </div>
         </div>
       </section>
+
+      {/* Details Panel - ADDED THIS COMPONENT */}
+      {isPanelOpen && (
+        <div className="details-panel-overlay" onClick={handleClosePanel}>
+          <div className="details-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-header">
+              <h2 className="panel-title">
+                {selectedIssue === 'underperforming' ? 'Underperforming AMs' : 'Underperforming Dietitians'}
+              </h2>
+              <button className="panel-close" onClick={handleClosePanel}>×</button>
+            </div>
+            
+            <div className="panel-content">
+              {selectedIssue === 'underperforming' && (
+                <div className="issue-details">
+                  <h3>AMs Performing at or Below 25% of Daily Target</h3>
+                  {underperformingAMs.length === 0 ? (
+                    <p className="no-issues">No underperforming AMs found</p>
+                  ) : (
+                    <div className="issues-list">
+                      {underperformingAMs.map(am => (
+                        <div key={am.id} className="issue-item">
+                          <div className="issue-item-header">
+                            <span className="issue-item-name">{am.name}</span>
+                            <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
+                          </div>
+                          <div className="issue-item-metrics">
+                            <div className="metric-row">
+                              <span>Yesterday:</span>
+                              <span className={`pct ${am.metrics.service.y.pct <= 25 ? 'low' : ''}`}>
+                                {am.metrics.service.y.pct}%
+                              </span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Achieved:</span>
+                              <span>{fmtLakhs(am.metrics.service.y.achieved * 100000)}L</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Target:</span>
+                              <span>{fmtLakhs(am.metrics.service.y.target * 100000)}L</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedIssue === 'dietitians' && (
+                <div className="issue-details">
+                  <h3>Dietitians with 3+ Consecutive Zero Sales Days</h3>
+                  {filteredDietitians.length === 0 ? (
+                    <p className="no-issues">No underperforming dietitians found</p>
+                  ) : (
+                    <div className="issues-list">
+                      {filteredDietitians.map((dietitian, index) => (
+                        <div key={index} className="issue-item">
+                          <div className="issue-item-header">
+                            <span className="issue-item-name">{dietitian.dietitianName}</span>
+                            <span className="badge dietitian">Dietitian</span>
+                          </div>
+                          <div className="issue-item-metrics">
+                            <div className="metric-row">
+                              <span>SM:</span>
+                              <span>{dietitian.smName}</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Zero Days:</span>
+                              <span className="low">{dietitian.consecutiveZeroDays} days</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Sales Achieved:</span>
+                              <span>₹{dietitian.salesAchieved.toLocaleString()}</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Sales Target:</span>
+                              <span>₹{dietitian.salesTarget.toLocaleString()}</span>
+                            </div>
+                            <div className="metric-row">
+                              <span>Percent Achieved:</span>
+                              <span className={`pct ${dietitian.percentAchieved <= 25 ? 'low' : ''}`}>
+                                {dietitian.percentAchieved}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .crm-root {
@@ -1100,6 +1201,154 @@ export default function IssuesPage() {
           margin: 0 0 16px 0;
           max-width: 400px;
           line-height: 1.5;
+        }
+
+        /* Details Panel Styles - ADDED */
+        .details-panel-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: flex-end;
+          z-index: 1000;
+        }
+
+        .details-panel {
+          background: white;
+          width: 600px;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px 24px;
+          border-bottom: 1px solid #e5e7eb;
+          background: #f8fafc;
+        }
+
+        .panel-title {
+          margin: 0;
+          color: #111827;
+          font-size: 20px;
+          font-weight: 600;
+        }
+
+        .panel-close {
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #64748b;
+          padding: 4px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+        }
+
+        .panel-close:hover {
+          background: #e5e7eb;
+        }
+
+        .panel-content {
+          flex: 1;
+          padding: 24px;
+          overflow-y: auto;
+        }
+
+        .issue-details h3 {
+          margin: 0 0 20px 0;
+          color: #374151;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .no-issues {
+          text-align: center;
+          color: #64748b;
+          font-style: italic;
+          padding: 40px 0;
+        }
+
+        .issues-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .issue-item {
+          background: #f8fafc;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 16px;
+        }
+
+        .issue-item-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .issue-item-name {
+          font-weight: 600;
+          color: #111827;
+          font-size: 16px;
+        }
+
+        .badge {
+          font-size: 12px;
+          border-radius: 999px;
+          padding: 4px 8px;
+          border: 1px solid #e5e7eb;
+        }
+
+        .badge.am {
+          background: #fff7ed;
+          color: #9a3412;
+        }
+
+        .badge.flap {
+          background: #fffdea;
+          color: #854d0e;
+        }
+
+        .badge.dietitian {
+          background: #ecfdf5;
+          color: #065f46;
+        }
+
+        .issue-item-metrics {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .metric-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 14px;
+        }
+
+        .metric-row span:first-child {
+          color: #64748b;
+        }
+
+        .metric-row span:last-child {
+          font-weight: 500;
+          color: #111827;
+        }
+
+        .pct.low {
+          color: #dc2626;
+          font-weight: 600;
         }
       `}</style>
     </div>
