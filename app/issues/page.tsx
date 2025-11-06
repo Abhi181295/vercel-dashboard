@@ -1220,10 +1220,10 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="nums">
                               <div className="n target">
-                                {fmtLakhs(dietitian.salesTarget)}L
+                                {fmtLakhs(dietitian.salesTarget)}
                               </div>
                               <div className="n achieved">
-                                {fmtLakhs(dietitian.salesAchieved)}L
+                                {fmtLakhs(dietitian.salesAchieved)}
                               </div>
                               <div className={`n pct ${getPercentageColor(dietitian.percentAchieved)}`}>
                                 {dietitian.percentAchieved}%
