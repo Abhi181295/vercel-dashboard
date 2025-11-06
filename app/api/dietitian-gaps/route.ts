@@ -62,7 +62,7 @@ export interface DietitianGap {
 export async function GET(request: Request) {
   try {
     // Fetch data from Dietitian Gaps sheet
-    const gapsData = await getSheetData('Dietitian Gaps!A2:Q'); // Columns A to Q to cover all needed data
+    const gapsData = await getSheetData('Dietitian Gaps!A2:Q'); // Columns A to Q
 
     const dietitianGaps: DietitianGap[] = [];
 
@@ -78,8 +78,11 @@ export async function GET(request: Request) {
       const salesAchieved = parseNumber(row[10]); // Column K
       const percentAchieved = parseNumber(row[15]); // Column P
 
-      // Only include dietitians with 3+ consecutive zero days
-      if (dietitianName && consecutiveZeroDays >= 3) {
+      // ✅ NEW: Column M exclusion flag
+      const excludeFlag = (row[12] || '').trim().toUpperCase(); // Column M
+
+      // ✅ Include only if not marked "YES" in column M
+      if (dietitianName && consecutiveZeroDays >= 3 && excludeFlag !== 'YES') {
         dietitianGaps.push({
           dietitianName,
           smName: smName || 'Not Assigned',
