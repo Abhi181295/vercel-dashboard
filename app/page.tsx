@@ -8,10 +8,11 @@ import { useRouter } from 'next/navigation';
 export const revalidate = 300; // 5 minutes
 
 /** ============================================================================
- *  LIGHT CRM UI — Updated with color-coded percentages, improved headers, and drill-down modal
+ *  LIGHT CRM UI — Color-coded percentages, drill-down modal, Monthly Target column,
+ *  centered header bubbles, centered "Target" header, and "Direct Reports" hidden
  * ========================================================================== */
- 
- interface FunnelData {
+
+interface FunnelData {
   teamSize: number;
   rawTallies: {
     ytd: {
@@ -91,32 +92,16 @@ type UserWithTargets = {
   name: string;
   role: 'SM' | 'M' | 'AM' | 'FLAP' | 'EM';
   targets: {
-    service: number;
-    commerce: number;
+    service: number;   // monthly target (₹)
+    commerce: number;  // monthly target
   };
   scaledTargets?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
   achieved?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
   managerId?: string;
   smId?: string;
@@ -134,28 +119,12 @@ type Leaf = {
     commerce: number;
   };
   scaledTargets?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
   achieved?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
 };
 
@@ -171,28 +140,12 @@ type Manager = {
     commerce: number;
   };
   scaledTargets?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
   achieved?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
 };
 
@@ -208,44 +161,25 @@ type SM = {
     commerce: number;
   };
   scaledTargets?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
   achieved?: {
-    service: {
-      y: number;
-      w: number;
-      m: number;
-    };
-    commerce: {
-      y: number;
-      w: number;
-      m: number;
-    };
+    service: { y: number; w: number; m: number };
+    commerce: { y: number; w: number; m: number };
   };
 };
 
 function pct(a: number, t: number) {
   return t ? Math.round((a / t) * 100) : 0;
 }
-
 function fmt(n: number) {
   return n.toLocaleString('en-IN');
 }
-
 function fmtLakhs(n: number): string {
   const valueInLakhs = n / 100000;
   return valueInLakhs.toFixed(1);
 }
-
 function metric(a: number, t: number, isSales: boolean = false): Metric {
   if (isSales) {
     const aInLakhs = a / 100000;
@@ -255,49 +189,57 @@ function metric(a: number, t: number, isSales: boolean = false): Metric {
   return { achieved: a, target: t, pct: pct(a, t) };
 }
 
-// ---------------- HIERARCHY ----------------
 function buildHierarchy(
   sms: UserWithTargets[],
   managers: UserWithTargets[],
   ams: UserWithTargets[],
   ems: UserWithTargets[] = []
 ) {
-  const smMap = new Map(sms.map(sm => [sm.id, {
-    ...sm,
-    children: [] as any[],
-    ems: [] as any[],
-    metrics: {
-      service: {
-        y: metric(sm.achieved?.service.y || 0, sm.scaledTargets?.service.y || sm.targets.service, true),
-        w: metric(sm.achieved?.service.w || 0, sm.scaledTargets?.service.w || sm.targets.service, true),
-        m: metric(sm.achieved?.service.m || 0, sm.scaledTargets?.service.m || sm.targets.service, true),
+  const smMap = new Map(
+    sms.map(sm => [
+      sm.id,
+      {
+        ...sm,
+        children: [] as any[],
+        ems: [] as any[],
+        metrics: {
+          service: {
+            y: metric(sm.achieved?.service.y || 0, sm.scaledTargets?.service.y || sm.targets.service, true),
+            w: metric(sm.achieved?.service.w || 0, sm.scaledTargets?.service.w || sm.targets.service, true),
+            m: metric(sm.achieved?.service.m || 0, sm.scaledTargets?.service.m || sm.targets.service, true),
+          },
+          commerce: {
+            y: metric(sm.achieved?.commerce.y || 0, sm.scaledTargets?.commerce.y || sm.targets.commerce, false),
+            w: metric(sm.achieved?.commerce.w || 0, sm.scaledTargets?.commerce.w || sm.targets.commerce, false),
+            m: metric(sm.achieved?.commerce.m || 0, sm.scaledTargets?.commerce.m || sm.targets.commerce, false),
+          },
+        },
       },
-      commerce: {
-        y: metric(sm.achieved?.commerce.y || 0, sm.scaledTargets?.commerce.y || sm.targets.commerce, false),
-        w: metric(sm.achieved?.commerce.w || 0, sm.scaledTargets?.commerce.w || sm.targets.commerce, false),
-        m: metric(sm.achieved?.commerce.m || 0, sm.scaledTargets?.commerce.m || sm.targets.commerce, false),
-      },
-    }
-  }]));
+    ])
+  );
 
-  const managerMap = new Map(managers.map(manager => [manager.id, {
-    ...manager,
-    children: [] as any[],
-    metrics: {
-      service: {
-        y: metric(manager.achieved?.service.y || 0, manager.scaledTargets?.service.y || manager.targets.service, true),
-        w: metric(manager.achieved?.service.w || 0, manager.scaledTargets?.service.w || manager.targets.service, true),
-        m: metric(manager.achieved?.service.m || 0, manager.scaledTargets?.service.m || manager.targets.service, true),
+  const managerMap = new Map(
+    managers.map(manager => [
+      manager.id,
+      {
+        ...manager,
+        children: [] as any[],
+        metrics: {
+          service: {
+            y: metric(manager.achieved?.service.y || 0, manager.scaledTargets?.service.y || manager.targets.service, true),
+            w: metric(manager.achieved?.service.w || 0, manager.scaledTargets?.service.w || manager.targets.service, true),
+            m: metric(manager.achieved?.service.m || 0, manager.scaledTargets?.service.m || manager.targets.service, true),
+          },
+          commerce: {
+            y: metric(manager.achieved?.commerce.y || 0, manager.scaledTargets?.commerce.y || manager.targets.commerce, false),
+            w: metric(manager.achieved?.commerce.w || 0, manager.scaledTargets?.commerce.w || manager.targets.commerce, false),
+            m: metric(manager.achieved?.commerce.m || 0, manager.scaledTargets?.commerce.m || manager.targets.commerce, false),
+          },
+        },
       },
-      commerce: {
-        y: metric(manager.achieved?.commerce.y || 0, manager.scaledTargets?.commerce.y || manager.targets.commerce, false),
-        w: metric(manager.achieved?.commerce.w || 0, manager.scaledTargets?.commerce.w || manager.targets.commerce, false),
-        m: metric(manager.achieved?.commerce.m || 0, manager.scaledTargets?.commerce.m || manager.targets.commerce, false),
-      },
-    }
-  }]));
+    ])
+  );
 
-  // Assign managers to SMs
   managers.forEach(manager => {
     if (manager.smId && smMap.has(manager.smId)) {
       const sm = smMap.get(manager.smId)!;
@@ -306,7 +248,8 @@ function buildHierarchy(
     }
   });
 
-  // Assign AMs to Managers or create a virtual manager under SM
+  // Keep virtual "Direct Reports" for grouping AMs without a manager,
+  // but we'll HIDE it in the Managers table rendering + dropdown.
   ams.forEach(am => {
     if (am.managerId && managerMap.has(am.managerId)) {
       const manager = managerMap.get(am.managerId)!;
@@ -323,7 +266,7 @@ function buildHierarchy(
             w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
             m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
           },
-        }
+        },
       });
     } else if (am.smId && smMap.has(am.smId)) {
       const sm = smMap.get(am.smId)!;
@@ -331,7 +274,7 @@ function buildHierarchy(
       if (!managerMap.has(virtualManagerId)) {
         const virtualManager: any = {
           id: virtualManagerId,
-          name: 'Direct Reports',
+          name: 'Direct Reports', // will be hidden in UI; required to keep AMs visible in AM table
           role: 'M',
           smId: am.smId,
           children: [],
@@ -340,8 +283,8 @@ function buildHierarchy(
           achieved: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
           metrics: {
             service: { y: metric(0, 0, true), w: metric(0, 0, true), m: metric(0, 0, true) },
-            commerce: { y: metric(0, 0, false), w: metric(0, 0, false), m: metric(0, 0, false) }
-          }
+            commerce: { y: metric(0, 0, false), w: metric(0, 0, false), m: metric(0, 0, false) },
+          },
         };
         managerMap.set(virtualManagerId, virtualManager);
         sm.children.push(virtualManager);
@@ -360,12 +303,11 @@ function buildHierarchy(
             w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
             m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
           },
-        }
+        },
       });
     }
   });
 
-  // Attach EMs directly under SM
   ems.forEach(em => {
     if (em.smId && smMap.has(em.smId)) {
       const sm = smMap.get(em.smId)!;
@@ -382,7 +324,7 @@ function buildHierarchy(
             w: metric(em.achieved?.commerce.w || 0, em.scaledTargets?.commerce.w || em.targets.commerce, false),
             m: metric(em.achieved?.commerce.m || 0, em.scaledTargets?.commerce.m || em.targets.commerce, false),
           },
-        }
+        },
       } as Leaf);
     }
   });
@@ -390,8 +332,14 @@ function buildHierarchy(
   return Array.from(smMap.values());
 }
 
-/* ---------------- MODAL ---------------- */
-function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
+function MetricsModal({
+  isOpen,
+  onClose,
+  userName,
+  userRole,
+  period,
+  revType,
+}: {
   isOpen: boolean;
   onClose: () => void;
   userName: string;
@@ -418,7 +366,9 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/funnel?name=${encodeURIComponent(userName)}&role=${userRole}`);
+      const response = await fetch(
+        `/api/funnel?name=${encodeURIComponent(userName)}&role=${userRole}`
+      );
       if (!response.ok) {
         throw new Error('Failed to fetch funnel data');
       }
@@ -441,8 +391,10 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
   const rawData = funnelData?.rawTallies?.[currentPeriod];
   const metricsData = funnelData?.metrics?.[currentPeriod];
 
-  const formatNumber = (num: number) => (num === 0 ? '-' : Number.isInteger(num) ? num.toString() : num.toFixed(1));
-  const formatPercentage = (num: number) => (num === 0 ? '-' : `${(num * 100).toFixed(1)}%`);
+  const formatNumber = (num: number) =>
+    num === 0 ? '-' : Number.isInteger(num) ? num.toString() : num.toFixed(1);
+  const formatPercentage = (num: number) =>
+    num === 0 ? '-' : `${(num * 100).toFixed(1)}%`;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -460,9 +412,18 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
         </div>
 
         <div className="period-selector">
-          <button className={`period-btn ${activePeriod === 'y' ? 'active' : ''}`} onClick={() => setActivePeriod('y')}>Yesterday</button>
-          <button className={`period-btn ${activePeriod === 'w' ? 'active' : ''}`} onClick={() => setActivePeriod('w')}>WTD</button>
-          <button className={`period-btn ${activePeriod === 'm' ? 'active' : ''}`} onClick={() => setActivePeriod('m')}>MTD</button>
+          <button
+            className={`period-btn ${activePeriod === 'y' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('y')}
+          >Yesterday</button>
+          <button
+            className={`period-btn ${activePeriod === 'w' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('w')}
+          >WTD</button>
+          <button
+            className={`period-btn ${activePeriod === 'm' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('m')}
+          >MTD</button>
         </div>
 
         {loading && <div className="modal-loading"><div className="loading">Loading funnel data...</div></div>}
@@ -538,7 +499,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
       </div>
     </div>
   );
-}	
+}
 
 function DashboardPage() {
   const router = useRouter();
@@ -546,7 +507,7 @@ function DashboardPage() {
   const [userRole, setUserRole] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
-  
+
   const [selectedSM, setSelectedSM] = useState<SM | null>(null);
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [revType, setRevType] = useState<'service' | 'commerce'>('service');
@@ -560,10 +521,9 @@ function DashboardPage() {
     userName: '',
     userRole: '',
     period: 'y' as 'y' | 'w' | 'm',
-    revType: 'service' as 'service' | 'commerce'
+    revType: 'service' as 'service' | 'commerce',
   });
 
-  // --- helper: cookie read ---
   const getCookie = (name: string) => {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -571,29 +531,24 @@ function DashboardPage() {
     return '';
   };
 
-  // --- helper: identify "virtual/direct reports" manager (filter out from UI) ---
-  const isVirtualManager = (m?: Manager | null) =>
-    !!m && (m.id?.startsWith('virtual-m-') || (m.name || '').toLowerCase() === 'direct reports');
-
-  // --- auth check ---
   useEffect(() => {
     const checkAuth = () => {
       const hasCookie = document.cookie.includes('isAuthenticated=true');
       const hasLocalStorage = localStorage.getItem('isAuthenticated') === 'true';
       const authenticated = hasCookie || hasLocalStorage;
-      
+
       if (authenticated) {
         const email = localStorage.getItem('userEmail') || getCookie('userEmail');
         const name = localStorage.getItem('userName') || decodeURIComponent(getCookie('userName') || '');
         const role = localStorage.getItem('userRole') || getCookie('userRole');
-        
+
         setUserEmail(email || '');
         setUserName(name || '');
         setUserRole(role || '');
       }
-      
+
       setIsAuthenticated(authenticated);
-      
+
       if (!authenticated) {
         router.push('/login');
       }
@@ -602,19 +557,18 @@ function DashboardPage() {
     setTimeout(checkAuth, 100);
   }, [router]);
 
-  // --- data load ---
   const loadData = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/hierarchy');
       if (!response.ok) throw new Error('Failed to fetch data');
       const { sms, managers, ams, ems } = await response.json();
-
       let filteredData = sms;
       if (userRole === 'sm') {
-        filteredData = sms.filter((sm: UserWithTargets) => sm.name.toLowerCase() === userName.toLowerCase());
+        filteredData = sms.filter(
+          (sm: UserWithTargets) => sm.name.toLowerCase() === userName.toLowerCase()
+        );
       }
-
       const hierarchy = buildHierarchy(filteredData, managers, ams, ems || []);
       setData(hierarchy as any);
       if (hierarchy.length > 0) setSelectedSM(hierarchy[0] as any);
@@ -631,14 +585,12 @@ function DashboardPage() {
     loadData();
   }, [isAuthenticated, userRole, userName]);
 
-  // --- refresh ---
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
   };
 
-  // --- logout ---
   const handleLogout = () => {
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'userEmail=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -651,24 +603,47 @@ function DashboardPage() {
     router.push('/login');
   };
 
-  // --- managers list for table (hide virtual/Direct Reports) ---
+  // Filter out the virtual "Direct Reports" everywhere in Manager UI
+  const filterOutDirectReports = (arr: Manager[] = []) =>
+    (arr || []).filter(m => (m?.name || '').toLowerCase() !== 'direct reports');
+
   const managersToDisplay = useMemo(() => {
-    if (selectedManager) return [selectedManager].filter(m => !isVirtualManager(m));
-    else if (selectedSM) return (selectedSM.children || []).filter((m: Manager) => !isVirtualManager(m));
+    if (selectedManager) return filterOutDirectReports([selectedManager]);
+    else if (selectedSM) return filterOutDirectReports(selectedSM.children || []);
     return [];
   }, [selectedSM, selectedManager]);
 
-  // --- EMs under SM ---
   const emsToDisplay = useMemo(() => (selectedSM ? selectedSM.ems || [] : []), [selectedSM]);
 
-  // --- AMs list (kept intact; includes AMs of virtual manager so they still show) ---
   const filteredAMs = useMemo(() => {
     if (selectedManager) return selectedManager.children || [];
     else if (selectedSM) return (selectedSM.children || []).flatMap((m: Manager) => m.children || []);
     return [];
   }, [selectedSM, selectedManager]);
 
-  // --- select handlers ---
+  // === TOTALS (for the selected SM + current revenue type) ===
+  const totals = useMemo(() => {
+    if (!selectedSM) {
+      return {
+        y: { achieved: 0, target: 0, pct: 0 },
+        w: { achieved: 0, target: 0, pct: 0 },
+        m: { achieved: 0, target: 0, pct: 0 },
+        monthlyTarget: 0,
+        isSales: revType === 'service',
+      };
+    }
+    const y = selectedSM.metrics[revType].y;
+    const w = selectedSM.metrics[revType].w;
+    const m = selectedSM.metrics[revType].m;
+
+    const monthlyTargetRaw =
+      revType === 'service' ? selectedSM.targets?.service ?? 0 : selectedSM.targets?.commerce ?? 0;
+
+    const monthlyTarget = revType === 'service' ? monthlyTargetRaw / 100000 : monthlyTargetRaw;
+
+    return { y, w, m, monthlyTarget, isSales: revType === 'service' };
+  }, [selectedSM, revType]);
+
   const handleSMChange = (smId: string) => {
     const sm = data.find(s => s.id === smId) || null;
     setSelectedSM(sm);
@@ -680,12 +655,8 @@ function DashboardPage() {
       setSelectedManager(null);
       return;
     }
-    const manager = selectedSM?.children?.find((m: Manager) => m.id === managerId) || null;
-    // prevent selecting virtual/Direct Reports
-    if (isVirtualManager(manager)) {
-      setSelectedManager(null);
-      return;
-    }
+    const validManagers = filterOutDirectReports(selectedSM?.children || []);
+    const manager = validManagers.find((m: Manager) => m.id === managerId) || null;
     setSelectedManager(manager);
   };
 
@@ -694,9 +665,16 @@ function DashboardPage() {
     setModalOpen(true);
   };
 
-  // --- render states ---
+  const formatTarget = (monthlyTargetRaw: number) => {
+    return revType === 'service' ? fmtLakhs(monthlyTargetRaw) : fmt(monthlyTargetRaw);
+  };
+
   if (isAuthenticated === null) {
-    return <div className="crm-root"><div className="loading-full">Checking authentication...</div></div>;
+    return (
+      <div className="crm-root">
+        <div className="loading-full">Checking authentication...</div>
+      </div>
+    );
   }
   if (!isAuthenticated) return null;
 
@@ -704,7 +682,10 @@ function DashboardPage() {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
-          <div className="brand"><span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span><span className="zap">⚡</span></div>
+          <div className="brand">
+            <span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span>
+            <span className="zap">⚡</span>
+          </div>
           <nav className="nav">
             <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
             <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
@@ -719,7 +700,9 @@ function DashboardPage() {
             <button className="logout-btn" onClick={handleLogout}>⎋ Logout</button>
           </div>
         </aside>
-        <section className="crm-main"><div className="loading">Loading data from Google Sheets...</div></section>
+        <section className="crm-main">
+          <div className="loading">Loading data from Google Sheets...</div>
+        </section>
       </div>
     );
   }
@@ -728,7 +711,10 @@ function DashboardPage() {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
-          <div className="brand"><span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span><span className="zap">⚡</span></div>
+          <div className="brand">
+            <span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span>
+            <span className="zap">⚡</span>
+          </div>
           <nav className="nav">
             <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
             <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
@@ -747,7 +733,9 @@ function DashboardPage() {
           <div className="error">
             <h2>Error Loading Data</h2>
             <p>{error}</p>
-            <button className="btn" onClick={() => window.location.reload()} style={{ marginTop: '16px' }}>Try Again</button>
+            <button className="btn" onClick={() => window.location.reload()} style={{ marginTop: '16px' }}>
+              Try Again
+            </button>
           </div>
         </section>
       </div>
@@ -757,7 +745,10 @@ function DashboardPage() {
   return (
     <div className="crm-root">
       <aside className="crm-aside">
-        <div className="brand"><span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span><span className="zap">⚡</span></div>
+        <div className="brand">
+          <span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span>
+          <span className="zap">⚡</span>
+        </div>
         <nav className="nav">
           <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
           <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
@@ -780,7 +771,9 @@ function DashboardPage() {
             <p className="subtitle">Live data from Google Sheets</p>
           </div>
           <div className="actions">
-            <button className="btn" title="Refresh" onClick={handleRefresh} disabled={refreshing}>{refreshing ? 'Refreshing...' : '⟲ Refresh'}</button>
+            <button className="btn" title="Refresh" onClick={handleRefresh} disabled={refreshing}>
+              {refreshing ? 'Refreshing...' : '⟲ Refresh'}
+            </button>
             <button className="btn" title="Export CSV">⬇ Export CSV</button>
             <button className="btn" title="Show Filters">⚲ Show Filters</button>
           </div>
@@ -790,9 +783,15 @@ function DashboardPage() {
           {userRole === 'admin' && (
             <div className="select-group">
               <label className="select-label">Select SM:</label>
-              <select className="select" value={selectedSM?.id || ''} onChange={(e) => handleSMChange(e.target.value)}>
+              <select
+                className="select"
+                value={selectedSM?.id || ''}
+                onChange={(e) => handleSMChange(e.target.value)}
+              >
                 <option value="">-- Select SM --</option>
-                {data.map(sm => (<option key={sm.id} value={sm.id}>{sm.name}</option>))}
+                {data.map(sm => (
+                  <option key={sm.id} value={sm.id}>{sm.name}</option>
+                ))}
               </select>
             </div>
           )}
@@ -806,11 +805,8 @@ function DashboardPage() {
               disabled={!selectedSM}
             >
               <option value="">-- All Managers --</option>
-              {/* hide virtual/Direct Reports in dropdown */}
-              {selectedSM?.children
-                ?.filter((m: Manager) => !isVirtualManager(m))
-                .map((manager: Manager) => (
-                  <option key={manager.id} value={manager.id}>{manager.name}</option>
+              {filterOutDirectReports(selectedSM?.children || []).map((manager: Manager) => (
+                <option key={manager.id} value={manager.id}>{manager.name}</option>
               ))}
             </select>
           </div>
@@ -824,31 +820,93 @@ function DashboardPage() {
         )}
 
         <div className="rev-toggle">
-          <button className={`rev-pill ${revType === 'service' ? 'active' : ''}`} onClick={() => setRevType('service')} title="Show Service revenue metrics">Service Revenue</button>
-          <button className={`rev-pill ${revType === 'commerce' ? 'active' : ''}`} onClick={() => setRevType('commerce')} title="Show Commerce revenue metrics">Commerce Revenue</button>
+          <button
+            className={`rev-pill ${revType === 'service' ? 'active' : ''}`}
+            onClick={() => setRevType('service')}
+            title="Show Service revenue metrics"
+          >Service Revenue</button>
+          <button
+            className={`rev-pill ${revType === 'commerce' ? 'active' : ''}`}
+            onClick={() => setRevType('commerce')}
+            title="Show Commerce revenue metrics"
+          >Commerce Revenue</button>
         </div>
 
+        {/* ======= TOTAL DASHBOARD ======= */}
+        {selectedSM && (
+          <div className="section">
+            <h2 className="section-title">Total Dashboard</h2>
+            <div className="card totals-card">
+              <div className="sm-data">
+                <div className="metrics-grid totals-grid">
+                  <div className="metric-group">
+                    <div className="period-title">Yesterday</div>
+                    <Metrics m={totals.y} isSales={totals.isSales} />
+                  </div>
+                  <div className="metric-group">
+                    <div className="period-title">WTD</div>
+                    <Metrics m={totals.w} isSales={totals.isSales} />
+                  </div>
+                  <div className="metric-group">
+                    <div className="period-title">MTD</div>
+                    <Metrics m={totals.m} isSales={totals.isSales} />
+                  </div>
+
+                  {/* Monthly Target (single value) */}
+                  <div className="metric-group target-only">
+                    <div className="period-title">Total Monthly Target</div>
+                    <div className="grp grp-one">
+                      <div className="nums-one">
+                        <div className="n n-strong">
+                          {totals.isSales ? fmtLakhs(totals.monthlyTarget * 100000) : fmt(totals.monthlyTarget)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======= SM Performance ======= */}
         {selectedSM && (
           <div className="section">
             <h2 className="section-title">SM Performance</h2>
             <div className="card">
               <div className="sm-data">
                 <div className="sm-header">
-                  <div className="sm-name"><span className="nm">{selectedSM.name}</span><span className="badge sm">SM</span></div>
+                  <div className="sm-name">
+                    <span className="nm">{selectedSM.name}</span>
+                    <span className="badge sm">SM</span>
+                  </div>
                   <div className="sm-role">Senior Manager</div>
                 </div>
                 <div className="metrics-grid">
                   <div className="metric-group">
                     <div className="period-title">Yesterday</div>
-                    <Metrics m={selectedSM.metrics[revType].y} isSales={revType === 'service'} onClick={() => handleMetricClick(selectedSM.name, 'SM', 'y')} />
+                    <Metrics
+                      m={selectedSM.metrics[revType].y}
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'y')}
+                    />
                   </div>
                   <div className="metric-group">
                     <div className="period-title">WTD</div>
-                    <Metrics m={selectedSM.metrics[revType].w} isSales={revType === 'service'} onClick={() => handleMetricClick(selectedSM.name, 'SM', 'w')} />
+                    <Metrics
+                      m={selectedSM.metrics[revType].w}
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'w')}
+                    />
                   </div>
                   <div className="metric-group">
                     <div className="period-title">MTD</div>
-                    <Metrics m={selectedSM.metrics[revType].m} isSales={revType === 'service'} onClick={() => handleMetricClick(selectedSM.name, 'SM', 'm')} />
+                    <Metrics
+                      m={selectedSM.metrics[revType].m}
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(selectedSM.name, 'SM', 'm')}
+                    />
                   </div>
                 </div>
               </div>
@@ -856,6 +914,7 @@ function DashboardPage() {
           </div>
         )}
 
+        {/* ======= Managers table (Monthly Target column + hide Direct Reports) ======= */}
         {selectedSM && managersToDisplay.length > 0 && (
           <div className="section">
             <h2 className="section-title">
@@ -869,7 +928,6 @@ function DashboardPage() {
                 </div>
                 <div className="h-role"><div className="h-title">Role</div></div>
 
-                {/* HEADER GROUPS GET LIGHT TINTS */}
                 <div className="h-group merged h-period h-y">
                   <div className="g-title">Yesterday</div>
                   <div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div>
@@ -882,46 +940,105 @@ function DashboardPage() {
                   <div className="g-title">MTD</div>
                   <div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div>
                 </div>
+
+                {/* Monthly Target header (centered) */}
+                <div className="h-group merged h-period h-t">
+                  <div className="g-title">Monthly Target</div>
+                  <div className="g-sub g-sub-one"><span>Target</span></div>
+                </div>
               </div>
 
               <div className="tbody">
-                {managersToDisplay.map(manager => (
-                  <div key={manager.id} className="row">
-                    <div className="c-name"><span className="nm">{manager.name}</span><span className="badge m">M</span></div>
-                    <div className="c-role">Manager</div>
+                {managersToDisplay.map(manager => {
+                  const mtRaw = revType === 'service' ? manager.targets.service : manager.targets.commerce;
+                  const mt = revType === 'service' ? mtRaw / 100000 : mtRaw;
+                  return (
+                    <div key={manager.id} className="row">
+                      <div className="c-name">
+                        <span className="nm">{manager.name}</span>
+                        <span className="badge m">M</span>
+                      </div>
+                      <div className="c-role">Manager</div>
 
-                    {/* ROW GROUPS GET MATCHING LIGHT TINTS */}
-                    <div className="grp grp-y">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>{fmtLakhs((manager.metrics[revType].y.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>{fmtLakhs((manager.metrics[revType].y.target as number) * 100000)}</div>
-                        <div className={`n pct ${manager.metrics[revType].y.pct >= 80 ? 'good' : manager.metrics[revType].y.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>{manager.metrics[revType].y.pct}%</div>
+                      <div className="grp grp-y">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>
+                            {fmtLakhs((manager.metrics[revType].y.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}>
+                            {fmtLakhs((manager.metrics[revType].y.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              manager.metrics[revType].y.pct >= 80
+                                ? 'good'
+                                : manager.metrics[revType].y.pct >= 50
+                                ? 'warn'
+                                : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(manager.name, 'Manager', 'y')}
+                          >
+                            {manager.metrics[revType].y.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-w">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>
+                            {fmtLakhs((manager.metrics[revType].w.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>
+                            {fmtLakhs((manager.metrics[revType].w.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              manager.metrics[revType].w.pct >= 80
+                                ? 'good'
+                                : manager.metrics[revType].w.pct >= 50
+                                ? 'warn'
+                                : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}
+                          >
+                            {manager.metrics[revType].w.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-m">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>
+                            {fmtLakhs((manager.metrics[revType].m.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>
+                            {fmtLakhs((manager.metrics[revType].m.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              manager.metrics[revType].m.pct >= 80 ? 'good' : manager.metrics[revType].m.pct >= 50 ? 'warn' : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}
+                          >
+                            {manager.metrics[revType].m.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-t">
+                        <div className="nums-one">
+                          <div className="n n-strong">{revType === 'service' ? fmtLakhs(mt * 100000) : fmt(mt)}</div>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="grp grp-w">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>{fmtLakhs((manager.metrics[revType].w.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>{fmtLakhs((manager.metrics[revType].w.target as number) * 100000)}</div>
-                        <div className={`n pct ${manager.metrics[revType].w.pct >= 80 ? 'good' : manager.metrics[revType].w.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(manager.name, 'Manager', 'w')}>{manager.metrics[revType].w.pct}%</div>
-                      </div>
-                    </div>
-
-                    <div className="grp grp-m">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>{fmtLakhs((manager.metrics[revType].m.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>{fmtLakhs((manager.metrics[revType].m.target as number) * 100000)}</div>
-                        <div className={`n pct ${manager.metrics[revType].m.pct >= 80 ? 'good' : manager.metrics[revType].m.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}>{manager.metrics[revType].m.pct}%</div>
-                      </div>
-                    </div>
-
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
+        {/* ======= EMs table ======= */}
         {selectedSM && (selectedSM.ems?.length || 0) > 0 && (
           <div className="section">
             <h2 className="section-title">EMs under {selectedSM.name}</h2>
@@ -932,45 +1049,89 @@ function DashboardPage() {
                 <div className="h-group merged h-period h-y"><div className="g-title">Yesterday</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
                 <div className="h-group merged h-period h-w"><div className="g-title">WTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
                 <div className="h-group merged h-period h-m"><div className="g-title">MTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
+                <div className="h-group merged h-period h-t"><div className="g-title">Monthly Target</div><div className="g-sub g-sub-one"><span>Target</span></div></div>
               </div>
 
               <div className="tbody">
-                {emsToDisplay.map((em: Leaf) => (
-                  <div key={em.id} className="row">
-                    <div className="c-name"><span className="nm">{em.name}</span><span className="badge am">EM</span></div>
-                    <div className="c-role">EM</div>
+                {emsToDisplay.map((em: Leaf) => {
+                  const mtRaw = revType === 'service' ? em.targets.service : em.targets.commerce;
+                  const mt = revType === 'service' ? mtRaw / 100000 : mtRaw;
+                  return (
+                    <div key={em.id} className="row">
+                      <div className="c-name"><span className="nm">{em.name}</span><span className="badge am">EM</span></div>
+                      <div className="c-role">EM</div>
 
-                    <div className="grp grp-y">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'y')}>{fmtLakhs((em.metrics[revType].y.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'y')}>{fmtLakhs((em.metrics[revType].y.target as number) * 100000)}</div>
-                        <div className={`n pct ${em.metrics[revType].y.pct >= 80 ? 'good' : em.metrics[revType].y.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(em.name, 'EM', 'y')}>{em.metrics[revType].y.pct}%</div>
+                      <div className="grp grp-y">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'y')}>
+                            {fmtLakhs((em.metrics[revType].y.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'y')}>
+                            {fmtLakhs((em.metrics[revType].y.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              em.metrics[revType].y.pct >= 80 ? 'good' : em.metrics[revType].y.pct >= 50 ? 'warn' : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(em.name, 'EM', 'y')}
+                          >
+                            {em.metrics[revType].y.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-w">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'w')}>
+                            {fmtLakhs((em.metrics[revType].w.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'w')}>
+                            {fmtLakhs((em.metrics[revType].w.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              em.metrics[revType].w.pct >= 80 ? 'good' : em.metrics[revType].w.pct >= 50 ? 'warn' : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(em.name, 'EM', 'w')}
+                          >
+                            {em.metrics[revType].w.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-m">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'm')}>
+                            {fmtLakhs((em.metrics[revType].m.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'm')}>
+                            {fmtLakhs((em.metrics[revType].m.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              em.metrics[revType].m.pct >= 80 ? 'good' : em.metrics[revType].m.pct >= 50 ? 'warn' : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(em.name, 'EM', 'm')}
+                          >
+                            {em.metrics[revType].m.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-t">
+                        <div className="nums-one">
+                          <div className="n n-strong">{revType === 'service' ? fmtLakhs(mt * 100000) : fmt(mt)}</div>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="grp grp-w">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'w')}>{fmtLakhs((em.metrics[revType].w.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'w')}>{fmtLakhs((em.metrics[revType].w.target as number) * 100000)}</div>
-                        <div className={`n pct ${em.metrics[revType].w.pct >= 80 ? 'good' : em.metrics[revType].w.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(em.name, 'EM', 'w')}>{em.metrics[revType].w.pct}%</div>
-                      </div>
-                    </div>
-
-                    <div className="grp grp-m">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'm')}>{fmtLakhs((em.metrics[revType].m.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(em.name, 'EM', 'm')}>{fmtLakhs((em.metrics[revType].m.target as number) * 100000)}</div>
-                        <div className={`n pct ${em.metrics[revType].m.pct >= 80 ? 'good' : em.metrics[revType].m.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(em.name, 'EM', 'm')}>{em.metrics[revType].m.pct}%</div>
-                      </div>
-                    </div>
-
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
+        {/* ======= AMs/FLAP table ======= */}
         {filteredAMs.length > 0 && (
           <div className="section">
             <h2 className="section-title">
@@ -983,40 +1144,86 @@ function DashboardPage() {
                 <div className="h-group merged h-period h-y"><div className="g-title">Yesterday</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
                 <div className="h-group merged h-period h-w"><div className="g-title">WTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
                 <div className="h-group merged h-period h-m"><div className="g-title">MTD</div><div className="g-sub"><span>Achieved</span><span>Target</span><span>%</span></div></div>
+                <div className="h-group merged h-period h-t"><div className="g-title">Monthly Target</div><div className="g-sub g-sub-one"><span>Target</span></div></div>
               </div>
 
               <div className="tbody">
-                {filteredAMs.map(am => (
-                  <div key={am.id} className="row">
-                    <div className="c-name"><span className="nm">{am.name}</span><span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span></div>
-                    <div className="c-role">{am.role === 'AM' ? 'Assistant Manager' : 'FLAP'}</div>
+                {filteredAMs.map(am => {
+                  const mtRaw = revType === 'service' ? am.targets.service : am.targets.commerce;
+                  const mt = revType === 'service' ? mtRaw / 100000 : mtRaw;
+                  return (
+                    <div key={am.id} className="row">
+                      <div className="c-name">
+                        <span className="nm">{am.name}</span>
+                        <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
+                      </div>
+                      <div className="c-role">{am.role === 'AM' ? 'Assistant Manager' : am.role}</div>
 
-                    <div className="grp grp-y">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'y')}>{fmtLakhs((am.metrics[revType].y.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'y')}>{fmtLakhs((am.metrics[revType].y.target as number) * 100000)}</div>
-                        <div className={`n pct ${am.metrics[revType].y.pct >= 80 ? 'good' : am.metrics[revType].y.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(am.name, am.role, 'y')}>{am.metrics[revType].y.pct}%</div>
+                      <div className="grp grp-y">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'y')}>
+                            {fmtLakhs((am.metrics[revType].y.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'y')}>
+                            {fmtLakhs((am.metrics[revType].y.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              am.metrics[revType].y.pct >= 80 ? 'good' : am.metrics[revType].y.pct >= 50 ? 'warn' : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(am.name, am.role, 'y')}
+                          >
+                            {am.metrics[revType].y.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-w">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'w')}>
+                            {fmtLakhs((am.metrics[revType].w.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'w')}>
+                            {fmtLakhs((am.metrics[revType].w.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              am.metrics[revType].w.pct >= 80 ? 'good' : am.metrics[revType].w.pct >= 50 ? 'warn' : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(am.name, am.role, 'w')}
+                          >
+                            {am.metrics[revType].w.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-m">
+                        <div className="nums">
+                          <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'm')}>
+                            {fmtLakhs((am.metrics[revType].m.achieved as number) * 100000)}
+                          </div>
+                          <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'm')}>
+                            {fmtLakhs((am.metrics[revType].m.target as number) * 100000)}
+                          </div>
+                          <div
+                            className={`n pct ${
+                              am.metrics[revType].m.pct >= 80 ? 'good' : am.metrics[revType].m.pct >= 50 ? 'warn' : 'low'
+                            } clickable`}
+                            onClick={() => handleMetricClick(am.name, am.role, 'm')}
+                          >
+                            {am.metrics[revType].m.pct}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grp grp-t">
+                        <div className="nums-one">
+                          <div className="n n-strong">{revType === 'service' ? fmtLakhs(mt * 100000) : fmt(mt)}</div>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="grp grp-w">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'w')}>{fmtLakhs((am.metrics[revType].w.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'w')}>{fmtLakhs((am.metrics[revType].w.target as number) * 100000)}</div>
-                        <div className={`n pct ${am.metrics[revType].w.pct >= 80 ? 'good' : am.metrics[revType].w.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(am.name, am.role, 'w')}>{am.metrics[revType].w.pct}%</div>
-                      </div>
-                    </div>
-
-                    <div className="grp grp-m">
-                      <div className="nums">
-                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'm')}>{fmtLakhs((am.metrics[revType].m.achieved as number) * 100000)}</div>
-                        <div className="n clickable" onClick={() => handleMetricClick(am.name, am.role, 'm')}>{fmtLakhs((am.metrics[revType].m.target as number) * 100000)}</div>
-                        <div className={`n pct ${am.metrics[revType].m.pct >= 80 ? 'good' : am.metrics[revType].m.pct >= 50 ? 'warn' : 'low'} clickable`} onClick={() => handleMetricClick(am.name, am.role, 'm')}>{am.metrics[revType].m.pct}%</div>
-                      </div>
-                    </div>
-
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1100,17 +1307,23 @@ const CSS = `
   --acc2-bg:#eef6ff;  --acc2-br:#cfe5ff;         /* WTD: blue */
   --acc3-bg:#f6f0ff;  --acc3-br:#e4d4ff;         /* MTD: purple */
 
+  /* New distinct accent for Monthly Target */
+  --acc4-bg:#fff7ed;  --acc4-br:#fed7aa;         /* Target: warm amber/peach */
+
   /* Pills */
   --pill-bg:#f8fafc;
   --pill-br:#e5e7eb;
 
-  /* Softer table cell tints (lighter than cards) */
+  /* Softer table cell tints */
   --acc1-bg-soft: rgba(22,163,74,0.05);
   --acc2-bg-soft: rgba(59,130,246,0.05);
   --acc3-bg-soft: rgba(139,92,246,0.05);
+  --acc4-bg-soft: rgba(245,158,11,0.06);
+
   --acc1-br-soft: rgba(22,163,74,0.12);
   --acc2-br-soft: rgba(59,130,246,0.12);
   --acc3-br-soft: rgba(139,92,246,0.12);
+  --acc4-br-soft: rgba(245,158,11,0.18);
 }
 
 *{box-sizing:border-box}
@@ -1163,34 +1376,79 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .sm-name{display:flex;align-items:center;gap:10px}
 .metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 
-/* Enhanced metric blocks (Yesterday/WTD/MTD) */
+/* Enhanced metric blocks */
 .metric-group{border:1px solid var(--line2);border-radius:14px;padding:14px;position:relative;overflow:hidden;background:#fff;box-shadow:0 1px 0 rgba(15,23,42,0.02);transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease}
 .metric-group:nth-child(1){border-left:6px solid var(--acc1-br);background:linear-gradient(180deg,var(--acc1-bg),#ffffff)}
 .metric-group:nth-child(2){border-left:6px solid var(--acc2-br);background:linear-gradient(180deg,var(--acc2-bg),#ffffff)}
 .metric-group:nth-child(3){border-left:6px solid var(--acc3-br);background:linear-gradient(180deg,var(--acc3-bg),#ffffff)}
 .metric-group:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(15,23,42,0.06)}
-.period-title{font-size:12px;font-weight:700;letter-spacing:.02em;color:#111827;margin-bottom:10px;text-align:center;display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line2);background:#fff}
+
+/* Center the header bubbles */
+.period-title{
+  font-size:12px;font-weight:700;letter-spacing:.02em;color:#111827;
+  margin:0 auto 10px auto;            /* center horizontally */
+  display:flex;align-items:center;justify-content:center; /* perfect centering */
+  padding:6px 10px;border-radius:999px;border:1px solid var(--line2);background:#fff;
+}
 .metric-group:nth-child(1) .period-title{background:rgba(22,163,74,0.06);border-color:var(--acc1-br)}
 .metric-group:nth-child(2) .period-title{background:rgba(59,130,246,0.06);border-color:var(--acc2-br)}
 .metric-group:nth-child(3) .period-title{background:rgba(139,92,246,0.06);border-color:var(--acc3-br)}
 
+/* Total Dashboard layout */
+.totals-card { border-color: var(--line2); }
+.totals-grid { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) {
+  .totals-grid { grid-template-columns: repeat(2, 1fr); }
+}
+/* Target-only visuals: use distinct target color (acc4), single value */
+.metric-group.target-only{border-left:6px solid var(--acc4-br);background:linear-gradient(180deg,var(--acc4-bg),#ffffff)}
+.grp-one .nums-one, .nums-one{display:grid;grid-template-columns:1fr;gap:12px;align-items:center;justify-items:center}
+.n-strong{font-weight:800}
+
 /* Table card */
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 
-/* Table header */
-.thead,.row{display:grid;grid-template-columns:minmax(260px,1fr) 160px repeat(3, 1fr)}
+/* Add Monthly Target column to table grids: + 1fr at end */
+.thead,.row{display:grid;grid-template-columns:minmax(260px,1fr) 160px repeat(3, 1fr) 1fr}
 .thead{background:linear-gradient(180deg,#ffffff,#fbfbfb);border-bottom:1px solid var(--line2)}
 .h-name,.h-role,.h-group{padding:12px;text-align:center}
 .h-title{font-size:12px;text-transform:uppercase;letter-spacing:.02em;color:#111827;font-weight:700}
 .h-sub{font-size:12px;color:#94a3b8;margin-top:2px}
 .h-group.merged{grid-column:span 1}
-.h-group .g-title{font-size:12px;text-transform:uppercase;letter-spacing:.02em;color:#111827;font-weight:700;margin-bottom:4px}
-.h-group .g-sub{display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;font-size:12px;color:#94a3b8}
+.h-group .g-title{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  color:#111827;
+  font-weight:700;
+  margin-bottom:4px;
+}
 
-/* Light period tints in table headers */
+
+.h-group .g-sub{
+  display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;
+  font-size:12px;color:#94a3b8;
+  justify-items:center;               /* center items including text */
+}
+.g-sub-one{display:flex;justify-content:center;align-items:center;text-align:center;height:100%;}
+
+/* Center the single-line subheader used in the Monthly Target column */
+.thead .h-group .g-sub-one{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height: 24px;        /* match visual height of the 3-label row */
+  line-height: 1;      /* avoid vertical drift */
+  text-align:center;
+  margin-top: 0;       /* keep it snug under the title */
+}
+
+
+/* Header period tints */
 .h-period.h-y{background:var(--acc1-bg-soft);border-left:4px solid var(--acc1-br-soft)}
 .h-period.h-w{background:var(--acc2-bg-soft);border-left:4px solid var(--acc2-br-soft)}
 .h-period.h-m{background:var(--acc3-bg-soft);border-left:4px solid var(--acc3-br-soft)}
+.h-period.h-t{background:var(--acc4-bg-soft);border-left:4px solid var(--acc4-br-soft)}
 
 /* Rows */
 .tbody{display:flex;flex-direction:column}
@@ -1199,7 +1457,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 
 .c-name{display:flex;align-items:center;gap:10px}
 .c-role{color:#64748b;text-align:center}
-
 .nm{font-weight:600}
 
 /* Numbers */
@@ -1217,6 +1474,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe
 .row .grp-y .n{background:var(--acc1-bg-soft);border-color:var(--acc1-br-soft)}
 .row .grp-w .n{background:var(--acc2-bg-soft);border-color:var(--acc2-br-soft)}
 .row .grp-m .n{background:var(--acc3-bg-soft);border-color:var(--acc3-br-soft)}
+.row .grp-t .n{background:var(--acc4-bg-soft);border-color:var(--acc4-br-soft)}
 
 /* Badges */
 .badge{font-size:11px;border-radius:999px;padding:4px 10px;border:1px solid var(--line)}
