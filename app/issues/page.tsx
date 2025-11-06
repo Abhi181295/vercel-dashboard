@@ -1,9 +1,9 @@
+// app/issues/page.tsx
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-export const revalidate = 300; // 5 minutes
 
 // Reuse existing types from main dashboard
 type UserWithTargets = {
@@ -169,133 +169,6 @@ interface FunnelData {
   };
 }
 
-function metric(a: number, t: number, isSales: boolean = false) {
-  const pct = t ? Math.round((a / t) * 100) : 0;
-  if (isSales) {
-    const aInLakhs = a / 100000;
-    const tInLakhs = t / 100000;
-    return { achieved: aInLakhs, target: tInLakhs, pct };
-  }
-  return { achieved: a, target: t, pct };
-}
-
-function fmtLakhs(n: number): string {
-  const valueInLakhs = n / 100000;
-  return valueInLakhs.toFixed(1);
-}
-
-function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams: UserWithTargets[]) {
-  const smMap = new Map(sms.map(sm => [sm.id, {
-    ...sm,
-    children: [] as any[],
-    metrics: {
-      service: {
-        y: metric(sm.achieved?.service.y || 0, sm.scaledTargets?.service.y || sm.targets.service, true),
-        w: metric(sm.achieved?.service.w || 0, sm.scaledTargets?.service.w || sm.targets.service, true),
-        m: metric(sm.achieved?.service.m || 0, sm.scaledTargets?.service.m || sm.targets.service, true),
-      },
-      commerce: {
-        y: metric(sm.achieved?.commerce.y || 0, sm.scaledTargets?.commerce.y || sm.targets.commerce, false),
-        w: metric(sm.achieved?.commerce.w || 0, sm.scaledTargets?.commerce.w || sm.targets.commerce, false),
-        m: metric(sm.achieved?.commerce.m || 0, sm.scaledTargets?.commerce.m || sm.targets.commerce, false),
-      },
-    }
-  }]));
-
-  const managerMap = new Map(managers.map(manager => [manager.id, {
-    ...manager,
-    children: [] as any[],
-    metrics: {
-      service: {
-        y: metric(manager.achieved?.service.y || 0, manager.scaledTargets?.service.y || manager.targets.service, true),
-        w: metric(manager.achieved?.service.w || 0, manager.scaledTargets?.service.w || manager.targets.service, true),
-        m: metric(manager.achieved?.service.m || 0, manager.scaledTargets?.service.m || manager.targets.service, true),
-      },
-      commerce: {
-        y: metric(manager.achieved?.commerce.y || 0, manager.scaledTargets?.commerce.y || manager.targets.commerce, false),
-        w: metric(manager.achieved?.commerce.w || 0, manager.scaledTargets?.commerce.w || manager.targets.commerce, false),
-        m: metric(manager.achieved?.commerce.m || 0, manager.scaledTargets?.commerce.m || manager.targets.commerce, false),
-      },
-    }
-  }]));
-
-  // Assign managers to SMs
-  managers.forEach(manager => {
-    if (manager.smId && smMap.has(manager.smId)) {
-      const sm = smMap.get(manager.smId)!;
-      const managerWithMetrics = managerMap.get(manager.id)!;
-      sm.children.push(managerWithMetrics);
-    }
-  });
-
-  // Assign AMs to Managers or directly to SMs if no manager
-  ams.forEach(am => {
-    if (am.managerId && managerMap.has(am.managerId)) {
-      // AM has a manager
-      const manager = managerMap.get(am.managerId)!;
-      manager.children.push({
-        ...am,
-        metrics: {
-          service: {
-            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
-            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
-            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
-          },
-          commerce: {
-            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
-            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
-            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
-          },
-        }
-      });
-    } else if (am.smId && smMap.has(am.smId)) {
-      // AM reports directly to SM (no manager)
-      const sm = smMap.get(am.smId)!;
-      const virtualManagerId = `virtual-m-${am.smId}`;
-      if (!managerMap.has(virtualManagerId)) {
-        const virtualManager: any = {
-          id: virtualManagerId,
-          name: 'Direct Reports',
-          role: 'M' as const,
-          smId: am.smId,
-          children: [],
-          targets: { service: 0, commerce: 0 },
-          scaledTargets: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
-          achieved: { service: { y: 0, w: 0, m: 0 }, commerce: { y: 0, w: 0, m: 0 } },
-          metrics: {
-            service: { y: metric(0, 0, true), w: metric(0, 0, true), m: metric(0, 0, true) },
-            commerce: { y: metric(0, 0, false), w: metric(0, 0, false), m: metric(0, 0, false) }
-          }
-        };
-        managerMap.set(virtualManagerId, virtualManager);
-        sm.children.push(virtualManager);
-      }
-      const virtualManager = managerMap.get(virtualManagerId)!;
-      virtualManager.children.push({
-        ...am,
-        metrics: {
-          service: {
-            y: metric(am.achieved?.service.y || 0, am.scaledTargets?.service.y || am.targets.service, true),
-            w: metric(am.achieved?.service.w || 0, am.scaledTargets?.service.w || am.targets.service, true),
-            m: metric(am.achieved?.service.m || 0, am.scaledTargets?.service.m || am.targets.service, true),
-          },
-          commerce: {
-            y: metric(am.achieved?.commerce.y || 0, am.scaledTargets?.commerce.y || am.targets.commerce, false),
-            w: metric(am.achieved?.commerce.w || 0, am.scaledTargets?.commerce.w || am.targets.commerce, false),
-            m: metric(am.achieved?.commerce.m || 0, am.scaledTargets?.commerce.m || am.targets.commerce, false),
-          },
-        }
-      });
-    }
-  });
-
-  // Convert to array and ensure proper typing
-  return Array.from(smMap.values()).map(sm => ({
-    ...sm,
-    role: 'SM' as const
-  }));
-}
-
 export default function IssuesPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -307,7 +180,6 @@ export default function IssuesPage() {
   const [data, setData] = useState<SM[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   
   // State for issue details panel
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -330,6 +202,21 @@ export default function IssuesPage() {
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) return parts.pop()?.split(';').shift();
     return '';
+  };
+
+  const metric = (a: number, t: number, isSales: boolean = false) => {
+    const pct = t ? Math.round((a / t) * 100) : 0;
+    if (isSales) {
+      const aInLakhs = a / 100000;
+      const tInLakhs = t / 100000;
+      return { achieved: aInLakhs, target: tInLakhs, pct };
+    }
+    return { achieved: a, target: t, pct };
+  };
+
+  const fmtLakhs = (n: number): string => {
+    const valueInLakhs = n / 100000;
+    return valueInLakhs.toFixed(1);
   };
 
   // Check authentication on component mount
@@ -359,70 +246,70 @@ export default function IssuesPage() {
     setTimeout(checkAuth, 100);
   }, [router]);
 
-  // Load data function that can be called independently
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      const [hierarchyResponse, dietitianGapsResponse] = await Promise.all([
-        fetch('/api/hierarchy'),
-        fetch('/api/dietitian-gaps')
-      ]);
-      
-      if (!hierarchyResponse.ok) {
-        throw new Error('Failed to fetch hierarchy data');
-      }
-      
-      const { sms, managers, ams } = await hierarchyResponse.json();
-      
-      // Filter data based on user role
-      let filteredData = sms;
-      if (userRole === 'sm') {
-        filteredData = sms.filter((sm: UserWithTargets) => 
-          sm.name.toLowerCase() === userName.toLowerCase()
-        );
-      }
-      
-      const hierarchy = buildHierarchy(filteredData, managers, ams);
-      
-      setData(hierarchy as SM[]);
-      
-      if (hierarchy.length > 0) {
-        setSelectedSM(hierarchy[0] as SM);
-      }
-
-      // Load dietitian gaps data
-      if (dietitianGapsResponse.ok) {
-        const gapsData = await dietitianGapsResponse.json();
-        setUnderperformingDietitians(gapsData.dietitianGaps || []);
-      }
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load data from Google Sheets. Please check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Fetch data on component mount after authentication
   useEffect(() => {
     if (!isAuthenticated) return;
+
+    async function loadData() {
+      try {
+        setLoading(true);
+        
+        const [hierarchyResponse, dietitianGapsResponse] = await Promise.all([
+          fetch('/api/hierarchy'),
+          fetch('/api/dietitian-gaps')
+        ]);
+        
+        if (!hierarchyResponse.ok) {
+          throw new Error('Failed to fetch hierarchy data');
+        }
+        
+        const { sms, managers, ams } = await hierarchyResponse.json();
+        
+        // Filter data based on user role
+        let filteredData = sms;
+        if (userRole === 'sm') {
+          filteredData = sms.filter((sm: UserWithTargets) => 
+            sm.name.toLowerCase() === userName.toLowerCase()
+          );
+        }
+        
+        // Build hierarchy similar to main dashboard
+        const hierarchy = filteredData.map((sm: any) => ({
+          ...sm,
+          children: managers.filter((m: any) => m.smId === sm.id).map((manager: any) => ({
+            ...manager,
+            children: ams.filter((am: any) => am.managerId === manager.id || am.smId === sm.id)
+          }))
+        }));
+        
+        setData(hierarchy);
+        
+        if (hierarchy.length > 0) {
+          setSelectedSM(hierarchy[0]);
+        }
+
+        // Load dietitian gaps data
+        if (dietitianGapsResponse.ok) {
+          const gapsData = await dietitianGapsResponse.json();
+          setUnderperformingDietitians(gapsData.dietitianGaps || []);
+        }
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Failed to load data from Google Sheets. Please check your connection and try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
     loadData();
   }, [isAuthenticated, userRole, userName]);
-
-  // Improved refresh function
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
 
   // Calculate underperforming AMs (≤ 25% of daily target)
   const calculateUnderperformingAMs = useMemo(() => {
     if (!selectedSM) return [];
 
     const underperformers: IssueAM[] = [];
-    const seenAMs = new Set();
+    const seenAMs = new Set(); // To track unique AMs and avoid duplicates
     
     // Get all AMs under the selected SM
     const allAMs: any[] = [];
@@ -440,7 +327,7 @@ export default function IssuesPage() {
       const achieved = am.achieved?.service?.y || 0;
       const target = am.scaledTargets?.service?.y || am.targets.service;
       
-      // Calculate percentage
+      // Calculate percentage (using same logic as main dashboard)
       const performancePct = target > 0 ? (achieved / target) * 100 : 0;
       
       if (performancePct <= 25) {
@@ -462,20 +349,15 @@ export default function IssuesPage() {
     return underperformers;
   }, [selectedSM]);
 
-  // FIXED: Filter dietitians based on user role AND selected SM
+  // Filter dietitians based on user role
   const filteredDietitians = useMemo(() => {
     if (userRole === 'sm') {
       return underperformingDietitians.filter(dietitian => 
         dietitian.smName.toLowerCase() === userName.toLowerCase()
       );
-    } else if (userRole === 'admin' && selectedSM) {
-      // Filter for admin when SM is selected
-      return underperformingDietitians.filter(dietitian => 
-        dietitian.smName.toLowerCase() === selectedSM.name.toLowerCase()
-      );
     }
-    return underperformingDietitians; // Show all for admin when no SM selected
-  }, [underperformingDietitians, userRole, userName, selectedSM]); // Added selectedSM dependency
+    return underperformingDietitians;
+  }, [underperformingDietitians, userRole, userName]);
 
   const handleLogout = () => {
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -504,11 +386,6 @@ export default function IssuesPage() {
     setIsPanelOpen(true);
   };
 
-  const handleClosePanel = () => {
-    setIsPanelOpen(false);
-    setSelectedIssue('');
-  };
-
   const handleMetricClick = (userName: string, userRole: string, period: 'y' | 'w' | 'm') => {
     setModalData({
       userName,
@@ -532,7 +409,7 @@ export default function IssuesPage() {
     return null;
   }
 
-  if (loading && !refreshing) {
+  if (loading) {
     return (
       <div className="crm-root">
         <aside className="crm-aside">
@@ -669,10 +546,9 @@ export default function IssuesPage() {
             <button 
               className="btn" 
               title="Refresh" 
-              onClick={handleRefresh}
-              disabled={refreshing}
+              onClick={() => window.location.reload()}
             >
-              {refreshing ? 'Refreshing...' : '⟲ Refresh'}
+              ⟲ Refresh
             </button>
           </div>
         </header>
@@ -749,29 +625,29 @@ export default function IssuesPage() {
             </button>
           </div>
         </div>
-      </section>
 
-      {/* Issue Details Panel */}
-      {isPanelOpen && (
-        <IssueDetailsPanel
-          isOpen={isPanelOpen}
-          onClose={() => setIsPanelOpen(false)}
-          issueType={selectedIssue}
-          ams={underperformingAMs}
-          dietitians={filteredDietitians}
-          onMetricClick={handleMetricClick}
+        {/* Issue Details Panel */}
+        {isPanelOpen && (
+          <IssueDetailsPanel
+            isOpen={isPanelOpen}
+            onClose={() => setIsPanelOpen(false)}
+            issueType={selectedIssue}
+            ams={underperformingAMs}
+            dietitians={filteredDietitians}
+            onMetricClick={handleMetricClick}
+          />
+        )}
+
+        {/* Funnel Metrics Modal */}
+        <MetricsModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          userName={modalData.userName}
+          userRole={modalData.userRole}
+          period={modalData.period}
+          revType={modalData.revType}
         />
-      )}
-
-      {/* Funnel Metrics Modal */}
-      <MetricsModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        userName={modalData.userName}
-        userRole={modalData.userRole}
-        period={modalData.period}
-        revType={modalData.revType}
-      />
+      </section>
 
       <style jsx global>{`
         .issues-grid {
@@ -989,4 +865,931 @@ export default function IssuesPage() {
           line-height: 1.5;
         }
       `}</style>
-    </div
+    </div>
+  );
+}
+
+// Issue Details Panel Component - UPDATED WITH IMPROVED DIETITIANS STYLING
+function IssueDetailsPanel({ 
+  isOpen, 
+  onClose, 
+  issueType, 
+  ams, 
+  dietitians,
+  onMetricClick 
+}: { 
+  isOpen: boolean;
+  onClose: () => void;
+  issueType: string;
+  ams: IssueAM[];
+  dietitians: DietitianGap[];
+  onMetricClick: (name: string, role: string, period: 'y' | 'w' | 'm') => void;
+}) {
+  if (!isOpen) return null;
+
+  const getPercentageColor = (pct: number) => {
+    if (pct >= 80) return 'good';
+    if (pct >= 50) return 'warn';
+    return 'low';
+  };
+
+  const fmtLakhs = (n: number): string => {
+    const valueInLakhs = n / 100000;
+    return valueInLakhs.toFixed(1);
+  };
+
+  return (
+    <div className="panel-overlay" onClick={onClose}>
+      <div className="panel-content" onClick={(e) => e.stopPropagation()}>
+        <div className="panel-header">
+          <h2>Issue Details</h2>
+          <button className="panel-close" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="panel-body">
+          {issueType === 'underperforming' && (
+            <>
+              <div className="issue-info">
+                <h3>Underperforming AMs</h3>
+                <p>AMs performing at or below 25% of their daily target</p>
+                <div className="issue-count-badge">{ams.length} AMs found</div>
+              </div>
+
+              {ams.length > 0 ? (
+                <div className="ams-list">
+                  <div className="card">
+                    <div className="thead">
+                      <div className="h-name">
+                        <div className="h-title">AM/FLAP Name</div>
+                        <div className="h-sub">Team members</div>
+                      </div>
+                      <div className="h-role">
+                        <div className="h-title">Role</div>
+                      </div>
+                      <div className="h-group merged">
+                        <div className="g-title">Yesterday</div>
+                        <div className="g-sub">
+                          <span>Achieved</span><span>Target</span><span>%</span>
+                        </div>
+                      </div>
+                      <div className="h-group merged">
+                        <div className="g-title">WTD</div>
+                        <div className="g-sub">
+                          <span>Achieved</span><span>Target</span><span>%</span>
+                        </div>
+                      </div>
+                      <div className="h-group merged">
+                        <div className="g-title">MTD</div>
+                        <div className="g-sub">
+                          <span>Achieved</span><span>Target</span><span>%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="tbody">
+                      {ams.map(am => (
+                        <div key={`${am.id}-${am.name}`} className="row">
+                          <div className="c-name">
+                            <span className="nm">{am.name}</span>
+                            <span className={`badge ${am.role === 'AM' ? 'am' : 'flap'}`}>{am.role}</span>
+                          </div>
+                          <div className="c-role">{am.role === 'AM' ? 'Assistant Manager' : 'FLAP'}</div>
+                          
+                          {/* Yesterday Metrics */}
+                          <div className="grp">
+                            <div className="nums">
+                              <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'y')}>
+                                {am.metrics.service.y.achieved.toFixed(1)}L
+                              </div>
+                              <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'y')}>
+                                {am.metrics.service.y.target.toFixed(1)}L
+                              </div>
+                              <div className={`n pct ${getPercentageColor(am.metrics.service.y.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'y')}>
+                                {am.metrics.service.y.pct}%
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* WTD Metrics */}
+                          <div className="grp">
+                            <div className="nums">
+                              <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'w')}>
+                                {am.metrics.service.w.achieved.toFixed(1)}L
+                              </div>
+                              <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'w')}>
+                                {am.metrics.service.w.target.toFixed(1)}L
+                              </div>
+                              <div className={`n pct ${getPercentageColor(am.metrics.service.w.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'w')}>
+                                {am.metrics.service.w.pct}%
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* MTD Metrics */}
+                          <div className="grp">
+                            <div className="nums">
+                              <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'm')}>
+                                {am.metrics.service.m.achieved.toFixed(1)}L
+                              </div>
+                              <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'm')}>
+                                {am.metrics.service.m.target.toFixed(1)}L
+                              </div>
+                              <div className={`n pct ${getPercentageColor(am.metrics.service.m.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'm')}>
+                                {am.metrics.service.m.pct}%
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="no-issues">
+                  <p>No underperforming AMs found</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {issueType === 'dietitians' && (
+            <>
+              <div className="issue-info">
+                <h3>Underperforming Dietitians</h3>
+                <p>Dietitians with zero sales for 3+ consecutive days</p>
+                <div className="issue-count-badge">{dietitians.length} Dietitians found</div>
+              </div>
+
+              {dietitians.length > 0 ? (
+                <div className="dietitians-list">
+                  <div className="card">
+                    <div className="thead">
+                      <div className="h-name">
+                        <div className="h-title">Dietitian Name</div>
+                      </div>
+                      <div className="h-role">
+                        <div className="h-title">SM Name</div>
+                      </div>
+                      <div className="h-group">
+                        <div className="g-title">Zero Days</div>
+                      </div>
+                      <div className="h-group merged">
+                        <div className="g-title">Sales</div>
+                        <div className="g-sub">
+                          <span>Target</span><span>Achieved</span><span>%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="tbody">
+                      {dietitians.map((dietitian, index) => (
+                        <div key={`${dietitian.dietitianName}-${index}`} className="row">
+                          <div className="c-name">
+                            <span className="nm">{dietitian.dietitianName}</span>
+                          </div>
+                          <div className="c-role">{dietitian.smName}</div>
+                          
+                          {/* Zero Days */}
+                          <div className="grp">
+                            <div className="zero-days">
+                              <div className="n days">{dietitian.consecutiveZeroDays}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Sales Metrics */}
+                          <div className="grp">
+                            <div className="nums">
+                              <div className="n target">
+                                {fmtLakhs(dietitian.salesTarget)}L
+                              </div>
+                              <div className="n achieved">
+                                {fmtLakhs(dietitian.salesAchieved)}L
+                              </div>
+                              <div className={`n pct ${getPercentageColor(dietitian.percentAchieved)}`}>
+                                {dietitian.percentAchieved}%
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="no-issues">
+                  <p>No underperforming dietitians found</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <style jsx>{`
+        .panel-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: flex-end;
+          z-index: 1000;
+        }
+
+        .panel-content {
+          background: white;
+          width: 85%;
+          max-width: 1200px;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px 24px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .panel-header h2 {
+          margin: 0;
+          color: #111827;
+          font-size: 20px;
+        }
+
+        .panel-close {
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #6b7280;
+          padding: 4px;
+          border-radius: 4px;
+        }
+
+        .panel-close:hover {
+          background: #f3f4f6;
+          color: #111827;
+        }
+
+        .panel-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 24px;
+        }
+
+        .issue-info {
+          margin-bottom: 24px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .issue-info h3 {
+          margin: 0 0 8px 0;
+          color: #111827;
+          font-size: 18px;
+        }
+
+        .issue-info p {
+          margin: 0 0 12px 0;
+          color: #6b7280;
+          font-size: 14px;
+        }
+
+        .issue-count-badge {
+          background: #ef4444;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 16px;
+          font-size: 14px;
+          font-weight: 600;
+          display: inline-block;
+        }
+
+        .card {
+          background: var(--card);
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          overflow: hidden;
+        }
+
+        .thead {
+          display: grid;
+          grid-template-columns: minmax(260px, 1fr) 160px repeat(3, 1fr);
+          background: linear-gradient(180deg, #ffffff, #fbfbfb);
+          border-bottom: 1px solid var(--line2);
+          padding: 12px 16px;
+        }
+
+        .h-name, .h-role, .h-group {
+          padding: 12px;
+          text-align: center;
+        }
+
+        .h-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          color: #111827;
+          font-weight: 700;
+        }
+
+        .h-sub {
+          font-size: 12px;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+
+        .h-group.merged {
+          grid-column: span 1;
+        }
+
+        .h-group .g-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          color: #111827;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+
+        .h-group .g-sub {
+          display: grid;
+          grid-template-columns: 1fr 1fr 60px;
+          gap: 12px;
+          font-size: 12px;
+          color: #94a3b8;
+        }
+
+        .h-group .g-sub span:nth-child(1) { text-align: left; }
+        .h-group .g-sub span:nth-child(2) { text-align: center; }
+        .h-group .g-sub span:nth-child(3) { text-align: right; }
+
+        .tbody {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .row {
+          display: grid;
+          grid-template-columns: minmax(260px, 1fr) 160px repeat(3, 1fr);
+          padding: 12px 16px;
+          align-items: center;
+          border-bottom: 1px solid var(--line2);
+          transition: background 0.12s ease;
+        }
+
+        .row:hover {
+          background: #fafbfd;
+        }
+
+        .row:last-child {
+          border-bottom: none;
+        }
+
+        .c-name {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .c-role {
+          color: #64748b;
+          text-align: center;
+        }
+
+        .nm {
+          font-weight: 600;
+        }
+
+        .grp {
+          padding: 0 10px;
+        }
+
+        .nums {
+          display: grid;
+          grid-template-columns: 1fr 1fr 60px;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .zero-days {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        .n {
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .n.days {
+          background: #ef4444;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 14px;
+          min-width: 40px;
+        }
+
+        .n.achieved {
+          text-align: left;
+          justify-self: start;
+        }
+
+        .n.target {
+          text-align: center;
+          justify-self: center;
+        }
+
+        .n.pct {
+          text-align: right;
+          justify-self: end;
+          font-size: 13px;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .n.pct.low {
+          color: var(--low);
+          background: #fef2f2;
+        }
+
+        .n.pct.warn {
+          color: var(--warn);
+          background: #fffbeb;
+        }
+
+        .n.pct.good {
+          color: var(--good);
+          background: #f0fdf4;
+        }
+
+        .clickable {
+          cursor: pointer;
+          transition: all 0.2s ease;
+          padding: 2px 4px;
+          border-radius: 4px;
+        }
+
+        .clickable:hover {
+          background: #f8fafc;
+          transform: scale(1.05);
+        }
+
+        .badge {
+          font-size: 11px;
+          border-radius: 999px;
+          padding: 4px 10px;
+          border: 1px solid var(--line);
+        }
+
+        .badge.am {
+          background: #fff7ed;
+        }
+
+        .badge.flap {
+          background: #fffdea;
+        }
+
+        .no-issues {
+          text-align: center;
+          padding: 40px 20px;
+          color: #6b7280;
+        }
+
+        /* Dietitians specific styling - IMPROVED */
+        .dietitians-list .thead {
+          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px minmax(200px, 1fr);
+        }
+
+        .dietitians-list .row {
+          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px minmax(200px, 1fr);
+        }
+
+        .dietitians-list .h-group.merged {
+          grid-column: span 1;
+        }
+
+        .dietitians-list .h-group .g-sub {
+          display: grid;
+          grid-template-columns: 1fr 1fr 80px;
+          gap: 12px;
+          font-size: 12px;
+          color: #94a3b8;
+        }
+
+        .dietitians-list .h-group .g-sub span {
+          text-align: center;
+        }
+
+        .dietitians-list .nums {
+          display: grid;
+          grid-template-columns: 1fr 1fr 80px;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .dietitians-list .n.achieved,
+        .dietitians-list .n.target,
+        .dietitians-list .n.pct {
+          text-align: center;
+          justify-self: center;
+        }
+
+        .dietitians-list .zero-days .n.days {
+          background: #ef4444;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 14px;
+          min-width: 40px;
+        }
+
+        /* Ensure proper alignment for all columns */
+        .dietitians-list .c-name,
+        .dietitians-list .c-role {
+          padding: 0 12px;
+        }
+
+        .dietitians-list .grp {
+          padding: 0 12px;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Metrics Modal Component (same as main dashboard)
+function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
+  isOpen: boolean;
+  onClose: () => void;
+  userName: string;
+  userRole: string;
+  period: 'y' | 'w' | 'm';
+  revType: 'service' | 'commerce';
+}) {
+  const [activePeriod, setActivePeriod] = useState<'y' | 'w' | 'm'>(period);
+  const [funnelData, setFunnelData] = useState<FunnelData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Update active period when the period prop changes
+  useEffect(() => {
+    setActivePeriod(period);
+  }, [period]);
+
+  // Fetch funnel data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchFunnelData();
+    }
+  }, [isOpen, userName, userRole]);
+
+  const fetchFunnelData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/funnel?name=${encodeURIComponent(userName)}&role=${userRole}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch funnel data');
+      }
+      const data = await response.json();
+      setFunnelData(data);
+    } catch (err) {
+      console.error('Error fetching funnel data:', err);
+      setError('Failed to load detailed metrics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const periodLabels = {
+    y: 'Yesterday',
+    w: 'WTD (Week to Date)',
+    m: 'MTD (Month to Date)'
+  };
+
+  const periodMap = {
+    y: 'ytd',
+    w: 'wtd', 
+    m: 'mtd'
+  } as const;
+
+  const currentPeriod = periodMap[activePeriod];
+  const rawData = funnelData?.rawTallies?.[currentPeriod];
+  const metricsData = funnelData?.metrics?.[currentPeriod];
+
+  const formatNumber = (num: number) => {
+    if (num === 0) return '-';
+    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
+  };
+
+  const formatPercentage = (num: number) => {
+    if (num === 0) return '-';
+    return `${(num * 100).toFixed(1)}%`;
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Funnel and Key Metrics</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-subheader">
+          <div className="user-info-modal">
+            <strong>{userName}</strong> • {userRole} • {revType === 'service' ? 'Service Revenue' : 'Commerce Revenue'}
+            {funnelData && <span> • Team Size: {funnelData.teamSize}</span>}
+          </div>
+        </div>
+
+        <div className="period-selector">
+          <button
+            className={`period-btn ${activePeriod === 'y' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('y')}
+          >
+            Yesterday
+          </button>
+          <button
+            className={`period-btn ${activePeriod === 'w' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('w')}
+          >
+            WTD
+          </button>
+          <button
+            className={`period-btn ${activePeriod === 'm' ? 'active' : ''}`}
+            onClick={() => setActivePeriod('m')}
+          >
+            MTD
+          </button>
+        </div>
+
+        {loading && (
+          <div className="modal-loading">
+            <div className="loading">Loading funnel data...</div>
+          </div>
+        )}
+
+        {error && (
+          <div className="modal-error">
+            <div className="error">{error}</div>
+            <button className="btn" onClick={fetchFunnelData} style={{ marginTop: '16px' }}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        {funnelData && !loading && (
+          <>
+            <div className="modal-section">
+              <h3>Funnel Metrics - {periodLabels[activePeriod]}</h3>
+              <div className="metrics-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Team Size</th>
+                      <th>Calls</th>
+                      <th>Connected</th>
+                      <th>Talktime (hrs)</th>
+                      <th>Leads</th>
+                      <th>Total Links</th>
+                      <th>Sales Links</th>
+                      <th>Conv</th>
+                      <th>Sales Conv</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>{funnelData.teamSize}</td>
+                      <td>{formatNumber(rawData?.calls || 0)}</td>
+                      <td>{formatNumber(rawData?.connected || 0)}</td>
+                      <td>{formatNumber(rawData?.talktime || 0)}</td>
+                      <td>{formatNumber(rawData?.leads || 0)}</td>
+                      <td>{formatNumber(rawData?.totalLinks || 0)}</td>
+                      <td>{formatNumber(rawData?.salesLinks || 0)}</td>
+                      <td>{formatNumber(rawData?.conv || 0)}</td>
+                      <td>{formatNumber(rawData?.salesConv || 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="modal-section">
+              <h3>Performance Metrics - {periodLabels[activePeriod]}</h3>
+              <div className="metrics-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Call per Dt. per day</th>
+                      <th>Connectivity %</th>
+                      <th>TT per connected call (min)</th>
+                      <th>Leads per Dt. per day</th>
+                      <th>Lead % vs Connected Call</th>
+                      <th>Might Pay %</th>
+                      <th>Conv %</th>
+                      <th>Sales Team Conv %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>{formatNumber(metricsData?.callsPerDtPerDay || 0)}</td>
+                      <td>{formatPercentage(metricsData?.connectivity || 0)}</td>
+                      <td>{formatNumber(metricsData?.ttPerConnectedCall || 0)}</td>
+                      <td>{formatNumber(metricsData?.leadsPerDtPerDay || 0)}</td>
+                      <td>{formatPercentage(metricsData?.leadVsConnected || 0)}</td>
+                      <td>{formatPercentage(metricsData?.mightPay || 0)}</td>
+                      <td>{formatPercentage(metricsData?.convPercent || 0)}</td>
+                      <td>{formatPercentage(metricsData?.salesTeamConv || 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose}>Close</button>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1001;
+          padding: 20px;
+        }
+
+        .modal-content {
+          background: white;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 1200px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px 24px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .modal-header h2 {
+          margin: 0;
+          color: #111827;
+          font-size: 20px;
+        }
+
+        .modal-close {
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #6b7280;
+          padding: 4px;
+          border-radius: 4px;
+        }
+
+        .modal-close:hover {
+          background: #f3f4f6;
+          color: #111827;
+        }
+
+        .modal-subheader {
+          padding: 16px 24px;
+          background: #f8fafc;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .user-info-modal {
+          font-size: 14px;
+          color: #6b7280;
+        }
+
+        .period-selector {
+          display: flex;
+          gap: 8px;
+          padding: 20px 24px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .period-btn {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          padding: 8px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: all 0.2s;
+        }
+
+        .period-btn.active {
+          background: #111827;
+          color: white;
+          border-color: #111827;
+        }
+
+        .period-btn:hover:not(.active) {
+          background: #e5e7eb;
+        }
+
+        .modal-section {
+          padding: 20px 24px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .modal-section:last-of-type {
+          border-bottom: none;
+        }
+
+        .modal-section h3 {
+          margin: 0 0 16px 0;
+          color: #111827;
+          font-size: 16px;
+        }
+
+        .metrics-table {
+          overflow-x: auto;
+        }
+
+        .metrics-table table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 14px;
+        }
+
+        .metrics-table th,
+        .metrics-table td {
+          padding: 12px;
+          text-align: center;
+          border: 1px solid var(--line);
+        }
+
+        .metrics-table th {
+          background: #f8fafc;
+          font-weight: 600;
+          color: #374151;
+        }
+
+        .metrics-table td {
+          color: #6b7280;
+        }
+
+        .modal-actions {
+          padding: 20px 24px;
+          border-top: 1px solid var(--line);
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .modal-loading, .modal-error {
+          padding: 40px 24px;
+          text-align: center;
+        }
+
+        .modal-loading .loading, .modal-error .error {
+          height: auto;
+          margin: 0;
+        }
+
+        .btn {
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 12px;
+          cursor: pointer;
+        }
+
+        .btn:hover {
+          opacity: 0.9;
+        }
+      `}</style>
+    </div>
+  );
+}
