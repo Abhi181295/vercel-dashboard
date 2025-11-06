@@ -89,7 +89,7 @@ type RevenueMetrics = {
 type UserWithTargets = {
   id: string;
   name: string;
-  role: 'SM' | 'M' | 'AM' | 'FLAP';
+  role: 'SM' | 'M' | 'AM' | 'FLAP' | 'EM';
   targets: {
     service: number;
     commerce: number;
@@ -125,7 +125,7 @@ type UserWithTargets = {
 type Leaf = {
   id: string;
   name: string;
-  role: 'AM' | 'FLAP';
+  role: 'AM' | 'FLAP' | 'EM';
   metrics: RevenueMetrics;
   managerId?: string;
   smId?: string;
@@ -202,6 +202,8 @@ type SM = {
   role: 'SM';
   metrics: RevenueMetrics;
   children: Manager[];
+  // NEW: EMs directly under SM
+  ems?: Leaf[];
   targets: {
     service: number;
     commerce: number;
@@ -254,10 +256,17 @@ function metric(a: number, t: number, isSales: boolean = false): Metric {
   return { achieved: a, target: t, pct: pct(a, t) };
 }
 
-function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams: UserWithTargets[]) {
+// UPDATED: accept ems and attach under SM
+function buildHierarchy(
+  sms: UserWithTargets[],
+  managers: UserWithTargets[],
+  ams: UserWithTargets[],
+  ems: UserWithTargets[] = []
+) {
   const smMap = new Map(sms.map(sm => [sm.id, {
     ...sm,
     children: [] as any[],
+    ems: [] as any[],
     metrics: {
       service: {
         y: metric(sm.achieved?.service.y || 0, sm.scaledTargets?.service.y || sm.targets.service, true),
@@ -301,7 +310,6 @@ function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams
   // Assign AMs to Managers or directly to SMs if no manager
   ams.forEach(am => {
     if (am.managerId && managerMap.has(am.managerId)) {
-      // AM has a manager
       const manager = managerMap.get(am.managerId)!;
       manager.children.push({
         ...am,
@@ -319,7 +327,6 @@ function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams
         }
       });
     } else if (am.smId && smMap.has(am.smId)) {
-      // AM reports directly to SM (no manager)
       const sm = smMap.get(am.smId)!;
       const virtualManagerId = `virtual-m-${am.smId}`;
       if (!managerMap.has(virtualManagerId)) {
@@ -356,6 +363,28 @@ function buildHierarchy(sms: UserWithTargets[], managers: UserWithTargets[], ams
           },
         }
       });
+    }
+  });
+
+  // NEW: Attach EMs directly under SM
+  ems.forEach(em => {
+    if (em.smId && smMap.has(em.smId)) {
+      const sm = smMap.get(em.smId)!;
+      sm.ems!.push({
+        ...em,
+        metrics: {
+          service: {
+            y: metric(em.achieved?.service.y || 0, em.scaledTargets?.service.y || em.targets.service, true),
+            w: metric(em.achieved?.service.w || 0, em.scaledTargets?.service.w || em.targets.service, true),
+            m: metric(em.achieved?.service.m || 0, em.scaledTargets?.service.m || em.targets.service, true),
+          },
+          commerce: {
+            y: metric(em.achieved?.commerce.y || 0, em.scaledTargets?.commerce.y || em.targets.commerce, false),
+            w: metric(em.achieved?.commerce.w || 0, em.scaledTargets?.commerce.w || em.targets.commerce, false),
+            m: metric(em.achieved?.commerce.m || 0, em.scaledTargets?.commerce.m || em.targets.commerce, false),
+          },
+        }
+      } as Leaf);
     }
   });
 
@@ -635,7 +664,8 @@ function DashboardPage() {
         throw new Error('Failed to fetch data');
       }
       
-      const { sms, managers, ams } = await response.json();
+      // UPDATED: read ems as well
+      const { sms, managers, ams, ems } = await response.json();
       
       // Filter data based on user role
       let filteredData = sms;
@@ -646,7 +676,8 @@ function DashboardPage() {
         );
       }
       
-      const hierarchy = buildHierarchy(filteredData, managers, ams);
+      // UPDATED: pass ems into hierarchy
+      const hierarchy = buildHierarchy(filteredData, managers, ams, ems || []);
       setData(hierarchy as any);
       
       if (hierarchy.length > 0) {
@@ -697,6 +728,12 @@ function DashboardPage() {
     }
     return [];
   }, [selectedSM, selectedManager]);
+
+  // NEW: EMs to display (always under the selected SM)
+  const emsToDisplay = useMemo(() => {
+    if (selectedSM) return selectedSM.ems || [];
+    return [];
+  }, [selectedSM]);
 
   const filteredAMs = useMemo(() => {
     if (selectedManager) {
@@ -1059,6 +1096,72 @@ function DashboardPage() {
                       m={manager.metrics[revType].m} 
                       isSales={revType === 'service'}
                       onClick={() => handleMetricClick(manager.name, 'Manager', 'm')}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NEW: EMs list under the SM (parallel section, no CSS changes) */}
+        {selectedSM && (selectedSM.ems?.length || 0) > 0 && (
+          <div className="section">
+            <h2 className="section-title">
+              EMs under {selectedSM.name}
+            </h2>
+            <div className="card">
+              <div className="thead">
+                <div className="h-name">
+                  <div className="h-title">EM Name</div>
+                  <div className="h-sub">Executive Managers</div>
+                </div>
+                <div className="h-role">
+                  <div className="h-title">Role</div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">Yesterday</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">WTD</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+                <div className="h-group merged">
+                  <div className="g-title">MTD</div>
+                  <div className="g-sub">
+                    <span>Achieved</span><span>Target</span><span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="tbody">
+                {emsToDisplay.map((em: Leaf) => (
+                  <div key={em.id} className="row">
+                    <div className="c-name">
+                      <span className="nm">{em.name}</span>
+                      {/* reuse badge 'am' to avoid CSS change */}
+                      <span className="badge am">EM</span>
+                    </div>
+                    <div className="c-role">EM</div>
+                    <Metrics 
+                      m={em.metrics[revType].y} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(em.name, 'EM', 'y')}
+                    />
+                    <Metrics 
+                      m={em.metrics[revType].w} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(em.name, 'EM', 'w')}
+                    />
+                    <Metrics 
+                      m={em.metrics[revType].m} 
+                      isSales={revType === 'service'}
+                      onClick={() => handleMetricClick(em.name, 'EM', 'm')}
                     />
                   </div>
                 ))}

@@ -1,3 +1,5 @@
+// app/api/revenue/route.ts
+
 import { NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
 
@@ -67,7 +69,7 @@ export interface RevenueData {
 export async function GET() {
   try {
     // Fetch data from Dietitian Revenue sheet
-    const revenueData = await getSheetData('Dietitian Revenue!A2:T'); // Columns J to T
+    const revenueData = await getSheetData('Dietitian Revenue!A2:T');
 
     const revenue: RevenueData = {};
 
@@ -76,15 +78,16 @@ export async function GET() {
       const row = revenueData[i];
       
       // Extract names from different columns
-      const flapName = row[9]?.trim();  // Column J
-      const amName = row[10]?.trim();   // Column K
-      const managerName = row[11]?.trim(); // Column L
-      const smName = row[12]?.trim();   // Column M
+      const emName = row[8]?.trim();        // Column I (EM) — NEW
+      const flapName = row[9]?.trim();      // Column J
+      const amName = row[10]?.trim();       // Column K
+      const managerName = row[11]?.trim();  // Column L
+      const smName = row[12]?.trim();       // Column M
       
       // Extract achieved amounts
-      const serviceY = parseNumber(row[14]); // Column O
-      const serviceW = parseNumber(row[15]); // Column P
-      const serviceM = parseNumber(row[16]); // Column Q
+      const serviceY = parseNumber(row[14]);  // Column O
+      const serviceW = parseNumber(row[15]);  // Column P
+      const serviceM = parseNumber(row[16]);  // Column Q
       const commerceY = parseNumber(row[17]); // Column R
       const commerceW = parseNumber(row[18]); // Column S
       const commerceM = parseNumber(row[19]); // Column T
@@ -111,6 +114,7 @@ export async function GET() {
       };
 
       // Add revenue for each role found in the row
+      if (emName) addRevenueForName(emName, 'EM');      // NEW
       if (flapName) addRevenueForName(flapName, 'FLAP');
       if (amName) addRevenueForName(amName, 'AM');
       if (managerName) addRevenueForName(managerName, 'M');

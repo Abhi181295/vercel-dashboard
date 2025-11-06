@@ -47,7 +47,7 @@ async function getSheetData(range: string) {
 export interface User {
   id: string;
   name: string;
-  role: 'SM' | 'M' | 'AM' | 'FLAP';
+  role: 'SM' | 'M' | 'AM' | 'FLAP' | 'EM';
   managerId?: string;
   smId?: string;
   targets: {
@@ -78,6 +78,8 @@ export interface User {
       m: number;
     };
   };
+  // Optional—capturing ACC active client count for EMs (column Y). Not used elsewhere yet.
+  accActiveClients?: number;
 }
 
 function generateId(name: string, role: string): string {
@@ -91,7 +93,7 @@ function parseNumber(value: any): number {
 }
 
 // Function to calculate scaled targets
-function calculateScaledTargets(monthlyTarget: number, type: 'service' | 'commerce') {
+function calculateScaledTargets(monthlyTarget: number, _type: 'service' | 'commerce') {
   const now = new Date();
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -135,7 +137,7 @@ function calculateScaledTargets(monthlyTarget: number, type: 'service' | 'commer
   };
 }
 
-// Function to fetch revenue data
+// Function to fetch revenue data (now includes EM from column I)
 async function getRevenueData(): Promise<{ [key: string]: any }> {
   try {
     const revenueData = await getSheetData('Dietitian Revenue!A2:T');
@@ -143,18 +145,19 @@ async function getRevenueData(): Promise<{ [key: string]: any }> {
 
     for (let i = 0; i < revenueData.length; i++) {
       const row = revenueData[i];
+
+      const emName = row[8]?.trim();       // Column I (EM)
+      const flapName = row[9]?.trim();     // Column J
+      const amName = row[10]?.trim();      // Column K
+      const managerName = row[11]?.trim(); // Column L
+      const smName = row[12]?.trim();      // Column M
       
-      const flapName = row[9]?.trim();
-      const amName = row[10]?.trim();
-      const managerName = row[11]?.trim();
-      const smName = row[12]?.trim();
-      
-      const serviceY = parseNumber(row[14]);
-      const serviceW = parseNumber(row[15]);
-      const serviceM = parseNumber(row[16]);
-      const commerceY = parseNumber(row[17]);
-      const commerceW = parseNumber(row[18]);
-      const commerceM = parseNumber(row[19]);
+      const serviceY = parseNumber(row[14]); // O
+      const serviceW = parseNumber(row[15]); // P
+      const serviceM = parseNumber(row[16]); // Q
+      const commerceY = parseNumber(row[17]); // R
+      const commerceW = parseNumber(row[18]); // S
+      const commerceM = parseNumber(row[19]); // T
 
       const addRevenueForName = (name: string, role: string) => {
         if (!name) return;
@@ -176,6 +179,7 @@ async function getRevenueData(): Promise<{ [key: string]: any }> {
         revenue[key].commerce.m += commerceM;
       };
 
+      if (emName) addRevenueForName(emName, 'EM');
       if (flapName) addRevenueForName(flapName, 'FLAP');
       if (amName) addRevenueForName(amName, 'AM');
       if (managerName) addRevenueForName(managerName, 'M');
@@ -192,31 +196,35 @@ async function getRevenueData(): Promise<{ [key: string]: any }> {
 export async function GET() {
   try {
     // Fetch data from Targets sheet
-    const targetsData = await getSheetData('Targets!A2:T');
-    // Fetch revenue data
+    const targetsData = await getSheetData('Targets!A2:Y');
+    // Fetch revenue data (now includes EM)
     const revenueData = await getRevenueData();
 
     const sms: User[] = [];
     const managers: User[] = [];
+    const ems: User[] = [];     // NEW: EM list
     const ams: User[] = [];
 
     const seenUsers = new Map<string, User>();
 
     function createUser(
       name: string, 
-      role: 'SM' | 'M' | 'AM' | 'FLAP', 
+      role: 'SM' | 'M' | 'AM' | 'FLAP' | 'EM', 
       serviceTarget: number = 0, 
       commerceTarget: number = 0,
       managerId?: string, 
-      smId?: string
+      smId?: string,
+      accActiveClients?: number
     ): User {
       const id = generateId(name, role);
       
       if (seenUsers.has(id)) {
-        return seenUsers.get(id)!;
+        const existing = seenUsers.get(id)!;
+        // If we get accActiveClients later for the same user, update it
+        if (accActiveClients !== undefined) existing.accActiveClients = accActiveClients;
+        return existing;
       }
 
-      // Calculate scaled targets
       const scaledServiceTargets = calculateScaledTargets(serviceTarget, 'service');
       const scaledCommerceTargets = calculateScaledTargets(commerceTarget, 'commerce');
 
@@ -239,6 +247,11 @@ export async function GET() {
           commerce: { y: 0, w: 0, m: 0 }
         }
       };
+
+      if (accActiveClients !== undefined) {
+        user.accActiveClients = accActiveClients;
+      }
+
       seenUsers.set(id, user);
       return user;
     }
@@ -324,7 +337,39 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ sms, managers, ams });
+    // NEW: Process EM data (Columns V to Y)
+    // V: EM name, W: service target, X: SM name (required; if blank/#N/A → skip), Y: ACC active client count
+    for (let i = 0; i < targetsData.length; i++) {
+      const row = targetsData[i];
+      const emName = row[21]?.trim();             // V
+      const serviceTarget = parseNumber(row[22]); // W
+      const reportingSM = row[23]?.trim();        // X
+      const accActiveClientsRaw = row[24];        // Y
+      const accActiveClients = accActiveClientsRaw === '#N/A' ? undefined : parseNumber(accActiveClientsRaw);
+
+      if (!emName) continue;
+      if (!reportingSM || reportingSM === '#N/A') continue;
+
+      const reportingSMObj = sms.find(sm => sm.name.toLowerCase() === reportingSM.toLowerCase());
+      if (!reportingSMObj) continue;
+
+      // Commerce target for EM not provided → 0
+      const em = createUser(
+        emName,
+        'EM',
+        serviceTarget,
+        0,
+        undefined,
+        reportingSMObj.id,
+        accActiveClients
+      );
+
+      if (!ems.find(e => e.id === em.id)) {
+        ems.push(em);
+      }
+    }
+
+    return NextResponse.json({ sms, managers, ems, ams });
   } catch (error) {
     console.error('Error in hierarchy API:', error);
     return NextResponse.json(
