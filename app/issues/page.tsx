@@ -1016,10 +1016,10 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="nums">
                               <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'y')}>
-                                {am.metrics.service.y.achieved.toFixed(1)}L
+                                {am.metrics.service.y.achieved.toFixed(1)}
                               </div>
                               <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'y')}>
-                                {am.metrics.service.y.target.toFixed(1)}L
+                                {am.metrics.service.y.target.toFixed(1)}
                               </div>
                               <div className={`n pct ${getPercentageColor(am.metrics.service.y.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'y')}>
                                 {am.metrics.service.y.pct}%
@@ -1031,10 +1031,10 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="nums">
                               <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'w')}>
-                                {am.metrics.service.w.achieved.toFixed(1)}L
+                                {am.metrics.service.w.achieved.toFixed(1)}
                               </div>
                               <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'w')}>
-                                {am.metrics.service.w.target.toFixed(1)}L
+                                {am.metrics.service.w.target.toFixed(1)}
                               </div>
                               <div className={`n pct ${getPercentageColor(am.metrics.service.w.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'w')}>
                                 {am.metrics.service.w.pct}%
@@ -1046,10 +1046,10 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="nums">
                               <div className="n achieved clickable" onClick={() => onMetricClick(am.name, am.role, 'm')}>
-                                {am.metrics.service.m.achieved.toFixed(1)}L
+                                {am.metrics.service.m.achieved.toFixed(1)}
                               </div>
                               <div className="n target clickable" onClick={() => onMetricClick(am.name, am.role, 'm')}>
-                                {am.metrics.service.m.target.toFixed(1)}L
+                                {am.metrics.service.m.target.toFixed(1)}
                               </div>
                               <div className={`n pct ${getPercentageColor(am.metrics.service.m.pct)} clickable`} onClick={() => onMetricClick(am.name, am.role, 'm')}>
                                 {am.metrics.service.m.pct}%
@@ -1118,10 +1118,10 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="nums">
                               <div className="n achieved clickable" onClick={() => onMetricClick(m.name, m.role, 'y')}>
-                                {m.metrics.service.y.achieved.toFixed(1)}L
+                                {m.metrics.service.y.achieved.toFixed(1)}
                               </div>
                               <div className="n target clickable" onClick={() => onMetricClick(m.name, m.role, 'y')}>
-                                {m.metrics.service.y.target.toFixed(1)}L
+                                {m.metrics.service.y.target.toFixed(1)}
                               </div>
                               <div className={`n pct ${getPercentageColor(m.metrics.service.y.pct)} clickable`} onClick={() => onMetricClick(m.name, m.role, 'y')}>
                                 {m.metrics.service.y.pct}%
@@ -1133,10 +1133,10 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="nums">
                               <div className="n achieved clickable" onClick={() => onMetricClick(m.name, m.role, 'w')}>
-                                {m.metrics.service.w.achieved.toFixed(1)}L
+                                {m.metrics.service.w.achieved.toFixed(1)}
                               </div>
                               <div className="n target clickable" onClick={() => onMetricClick(m.name, m.role, 'w')}>
-                                {m.metrics.service.w.target.toFixed(1)}L
+                                {m.metrics.service.w.target.toFixed(1)}
                               </div>
                               <div className={`n pct ${getPercentageColor(m.metrics.service.w.pct)} clickable`} onClick={() => onMetricClick(m.name, m.role, 'w')}>
                                 {m.metrics.service.w.pct}%
@@ -1148,10 +1148,10 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="nums">
                               <div className="n achieved clickable" onClick={() => onMetricClick(m.name, m.role, 'm')}>
-                                {m.metrics.service.m.achieved.toFixed(1)}L
+                                {m.metrics.service.m.achieved.toFixed(1)}
                               </div>
                               <div className="n target clickable" onClick={() => onMetricClick(m.name, m.role, 'm')}>
-                                {m.metrics.service.m.target.toFixed(1)}L
+                                {m.metrics.service.m.target.toFixed(1)}
                               </div>
                               <div className={`n pct ${getPercentageColor(m.metrics.service.m.pct)} clickable`} onClick={() => onMetricClick(m.name, m.role, 'm')}>
                                 {m.metrics.service.m.pct}%
