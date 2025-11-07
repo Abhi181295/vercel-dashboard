@@ -112,6 +112,7 @@ type DietitianGap = {
   salesTarget: number;
   salesAchieved: number;
   percentAchieved: number;
+  daysSinceJoining?: number; // ✅ NEW: Add days since joining
 };
 
 // Funnel Data Interface (reuse from main dashboard)
@@ -412,7 +413,7 @@ export default function IssuesPage() {
   }, [selectedSM, excludedNames]);
 
   // Filter dietitians by selected SM for admins; for SM users, filter by their own name
-  // Dietitians are already filtered in the API with OR condition (Key Mapping Column C OR Column M = "YES")
+  // Dietitians are already filtered in the API with OR condition (Key Mapping Column C OR Column M = "YES") AND Column D >= 30
   const filteredDietitians = useMemo(() => {
     if (userRole === 'sm') {
       return underperformingDietitians.filter(dietitian => 
@@ -671,7 +672,6 @@ export default function IssuesPage() {
             <p className="issue-description">
               AMs & Ms performing at or below 25% of their daily target
               <br />
-              <small>Excludes: Names in Key Mapping Column C</small>
             </p>
             <button 
               className="view-details-btn"
@@ -689,9 +689,9 @@ export default function IssuesPage() {
               <div className="issue-count">{filteredDietitians.length}</div>
             </div>
             <p className="issue-description">
-              Dietitians with zero sales for 3+ consecutive days
+              Dietitians with zero sales for 3+ consecutive days & 30+ days since joining
               <br />
-              <small>Excludes: Key Mapping Column C OR Column M = "YES"</small>
+              
             </p>
             <button 
               className="view-details-btn"
@@ -954,7 +954,8 @@ export default function IssuesPage() {
   );
 }
 
-// Issue Details Panel Component - CSS/markup kept, only added Ms section using same classes
+// Issue Details Panel Component - Updated to show Days Since Joining
+// Issue Details Panel Component - Updated to show Days Since Joining
 function IssueDetailsPanel({ 
   isOpen, 
   onClose, 
@@ -996,7 +997,7 @@ function IssueDetailsPanel({
         <div className="panel-body">
           {issueType === 'underperforming' && (
             <>
-              {/* AMs block (unchanged UI classes) */}
+              {/* AMs block */}
               <div className="issue-info">
                 <h3>Underperforming AMs</h3>
                 <p>AMs performing at or below 25% of their daily target</p>
@@ -1014,22 +1015,28 @@ function IssueDetailsPanel({
                       <div className="h-role">
                         <div className="h-title">Role</div>
                       </div>
-                      <div className="h-group merged">
+                      <div className="h-group">
                         <div className="g-title">Yesterday</div>
                         <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
+                          <span>Achieved</span>
+                          <span>Target</span>
+                          <span>%</span>
                         </div>
                       </div>
-                      <div className="h-group merged">
+                      <div className="h-group">
                         <div className="g-title">WTD</div>
                         <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
+                          <span>Achieved</span>
+                          <span>Target</span>
+                          <span>%</span>
                         </div>
                       </div>
-                      <div className="h-group merged">
+                      <div className="h-group">
                         <div className="g-title">MTD</div>
                         <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
+                          <span>Achieved</span>
+                          <span>Target</span>
+                          <span>%</span>
                         </div>
                       </div>
                     </div>
@@ -1098,7 +1105,7 @@ function IssueDetailsPanel({
                 </div>
               )}
 
-              {/* Ms block (uses same classes; no CSS change) */}
+              {/* Ms block */}
               <div className="issue-info" style={{ marginTop: '24px' }}>
                 <h3>Underperforming Ms</h3>
                 <p>Ms performing at or below 25% of their daily target</p>
@@ -1116,22 +1123,28 @@ function IssueDetailsPanel({
                       <div className="h-role">
                         <div className="h-title">Role</div>
                       </div>
-                      <div className="h-group merged">
+                      <div className="h-group">
                         <div className="g-title">Yesterday</div>
                         <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
+                          <span>Achieved</span>
+                          <span>Target</span>
+                          <span>%</span>
                         </div>
                       </div>
-                      <div className="h-group merged">
+                      <div className="h-group">
                         <div className="g-title">WTD</div>
                         <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
+                          <span>Achieved</span>
+                          <span>Target</span>
+                          <span>%</span>
                         </div>
                       </div>
-                      <div className="h-group merged">
+                      <div className="h-group">
                         <div className="g-title">MTD</div>
                         <div className="g-sub">
-                          <span>Achieved</span><span>Target</span><span>%</span>
+                          <span>Achieved</span>
+                          <span>Target</span>
+                          <span>%</span>
                         </div>
                       </div>
                     </div>
@@ -1192,7 +1205,6 @@ function IssueDetailsPanel({
                         </div>
                       ))}
                     </div>
-
                   </div>
                 </div>
               ) : (
@@ -1207,7 +1219,7 @@ function IssueDetailsPanel({
             <>
               <div className="issue-info">
                 <h3>Underperforming Dietitians</h3>
-                <p>Dietitians with zero sales for 3+ consecutive days</p>
+                <p>Dietitians with zero sales for 3+ consecutive days & 30+ days since joining</p>
                 <div className="issue-count-badge">{dietitians.length} Dietitians found</div>
               </div>
 
@@ -1223,6 +1235,9 @@ function IssueDetailsPanel({
                       </div>
                       <div className="h-group">
                         <div className="g-title">Zero Days</div>
+                      </div>
+                      <div className="h-group">
+                        <div className="g-title">Days Since Joining</div>
                       </div>
                       <div className="h-group merged">
                         <div className="g-title">Sales</div>
@@ -1244,6 +1259,13 @@ function IssueDetailsPanel({
                           <div className="grp">
                             <div className="zero-days">
                               <div className="n days">{dietitian.consecutiveZeroDays}</div>
+                            </div>
+                          </div>
+
+                          {/* Days Since Joining */}
+                          <div className="grp">
+                            <div className="days-since-joining">
+                              <div className="n days-joined">{dietitian.daysSinceJoining || 0}</div>
                             </div>
                           </div>
                           
@@ -1276,7 +1298,7 @@ function IssueDetailsPanel({
         </div>
       </div>
 
-      {/* ⛔ Styles for panel are unchanged and already present globally below in your file */}
+      {/* Updated CSS for proper alignment */}
       <style jsx>{`
         .panel-overlay {
           position: fixed;
@@ -1370,156 +1392,139 @@ function IssueDetailsPanel({
           overflow: hidden;
         }
 
-        .thead {
+        /* AMs and Managers Table Styles - FIXED */
+        .ams-list .thead {
           display: grid;
-          grid-template-columns: minmax(260px, 1fr) 160px repeat(3, 1fr);
+          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 180px 180px 180px;
           background: linear-gradient(180deg, #ffffff, #fbfbfb);
           border-bottom: 1px solid var(--line2);
           padding: 12px 16px;
         }
 
-        .h-name, .h-role, .h-group {
-          padding: 12px;
-          text-align: center;
-        }
-
-        .h-title {
-          font-size: 12px;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          color: #111827;
-          font-weight: 700;
-        }
-
-        .h-sub {
-          font-size: 12px;
-          color: #94a3b8;
-          margin-top: 2px;
-        }
-
-        .h-group.merged {
-          grid-column: span 1;
-        }
-
-        .h-group .g-title {
-          font-size: 12px;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          color: #111827;
-          font-weight: 700;
-          margin-bottom: 4px;
-        }
-
-        .h-group .g-sub {
+        .ams-list .row {
           display: grid;
-          grid-template-columns: 1fr 1fr 60px;
-          gap: 12px;
-          font-size: 12px;
-          color: #94a3b8;
-        }
-
-        .h-group .g-sub span:nth-child(1) { text-align: left; }
-        .h-group .g-sub span:nth-child(2) { text-align: center; }
-        .h-group .g-sub span:nth-child(3) { text-align: right; }
-
-        .tbody {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .row {
-          display: grid;
-          grid-template-columns: minmax(260px, 1fr) 160px repeat(3, 1fr);
+          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 180px 180px 180px;
           padding: 12px 16px;
           align-items: center;
           border-bottom: 1px solid var(--line2);
           transition: background 0.12s ease;
         }
 
-        .row:hover {
+        .ams-list .h-name, 
+        .ams-list .h-role, 
+        .ams-list .h-group {
+          padding: 12px;
+          text-align: center;
+        }
+
+        .ams-list .h-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          color: #111827;
+          font-weight: 700;
+        }
+
+        .ams-list .h-sub {
+          font-size: 12px;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+
+        .ams-list .h-group .g-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          color: #111827;
+          font-weight: 700;
+          margin-bottom: 8px;
+        }
+
+        .ams-list .h-group .g-sub {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+          font-size: 11px;
+          color: #94a3b8;
+          font-weight: 500;
+        }
+
+        .ams-list .h-group .g-sub span {
+          text-align: center;
+        }
+
+        .ams-list .tbody {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .ams-list .row:hover {
           background: #fafbfd;
         }
 
-        .row:last-child {
+        .ams-list .row:last-child {
           border-bottom: none;
         }
 
-        .c-name {
+        .ams-list .c-name {
           display: flex;
           align-items: center;
           gap: 10px;
         }
 
-        .c-role {
+        .ams-list .c-role {
           color: #64748b;
           text-align: center;
         }
 
-        .nm {
+        .ams-list .nm {
           font-weight: 600;
         }
 
-        .grp {
-          padding: 0 10px;
+        .ams-list .grp {
+          padding: 0 8px;
         }
 
-        .nums {
+        .ams-list .nums {
           display: grid;
-          grid-template-columns: 1fr 1fr 60px;
-          gap: 12px;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
           align-items: center;
         }
 
-        .zero-days {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        .n {
+        .ams-list .n {
           font-weight: 600;
-          font-size: 14px;
-        }
-
-        .n.days {
-          background: #ef4444;
-          color: white;
-          padding: 6px 12px;
-          border-radius: 8px;
-          font-weight: 700;
-          font-size: 14px;
-          min-width: 40px;
-        }
-
-        .n.achieved {
-          text-align: left;
-          justify-self: start;
-        }
-
-        .n.target {
-          text-align: center;
-          justify-self: center;
-        }
-
-        .n.pct {
-          text-align: right;
-          justify-self: end;
           font-size: 13px;
-          padding: 2px 6px;
-          border-radius: 4px;
+          text-align: center;
+          padding: 4px 2px;
         }
 
-        .n.pct.low {
+        .ams-list .n.achieved {
+          color: #0f172a;
+        }
+
+        .ams-list .n.target {
+          color: #64748b;
+        }
+
+        .ams-list .n.pct {
+          font-size: 12px;
+          padding: 4px 6px;
+          border-radius: 6px;
+          min-width: 50px;
+        }
+
+        .ams-list .n.pct.low {
           color: var(--low);
           background: #fef2f2;
         }
 
-        .n.pct.warn {
+        .ams-list .n.pct.warn {
           color: var(--warn);
           background: #fffbeb;
         }
 
-        .n.pct.good {
+        .ams-list .n.pct.good {
           color: var(--good);
           background: #f0fdf4;
         }
@@ -1557,46 +1562,149 @@ function IssueDetailsPanel({
           color: #6b7280;
         }
 
-        /* Dietitians specific styling - IMPROVED */
+        /* Dietitians specific styling */
         .dietitians-list .thead {
-          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px minmax(200px, 1fr);
+          display: grid;
+          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px 120px minmax(200px, 1fr);
+          background: linear-gradient(180deg, #ffffff, #fbfbfb);
+          border-bottom: 1px solid var(--line2);
+          padding: 12px 16px;
         }
 
         .dietitians-list .row {
-          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px minmax(200px, 1fr);
+          display: grid;
+          grid-template-columns: minmax(200px, 1fr) minmax(150px, 1fr) 120px 120px minmax(200px, 1fr);
+          padding: 12px 16px;
+          align-items: center;
+          border-bottom: 1px solid var(--line2);
+          transition: background 0.12s ease;
+        }
+
+        .dietitians-list .h-name, 
+        .dietitians-list .h-role, 
+        .dietitians-list .h-group {
+          padding: 12px;
+          text-align: center;
+        }
+
+        .dietitians-list .h-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          color: #111827;
+          font-weight: 700;
         }
 
         .dietitians-list .h-group.merged {
           grid-column: span 1;
         }
 
+        .dietitians-list .h-group .g-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          color: #111827;
+          font-weight: 700;
+          margin-bottom: 8px;
+        }
+
         .dietitians-list .h-group .g-sub {
           display: grid;
-          grid-template-columns: 1fr 1fr 80px;
-          gap: 12px;
-          font-size: 12px;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+          font-size: 11px;
           color: #94a3b8;
+          font-weight: 500;
         }
 
         .dietitians-list .h-group .g-sub span {
           text-align: center;
         }
 
+        .dietitians-list .tbody {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .dietitians-list .row:hover {
+          background: #fafbfd;
+        }
+
+        .dietitians-list .row:last-child {
+          border-bottom: none;
+        }
+
+        .dietitians-list .c-name {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 12px;
+        }
+
+        .dietitians-list .c-role {
+          color: #64748b;
+          text-align: center;
+          padding: 0 12px;
+        }
+
+        .dietitians-list .nm {
+          font-weight: 600;
+        }
+
+        .dietitians-list .grp {
+          padding: 0 12px;
+        }
+
         .dietitians-list .nums {
           display: grid;
-          grid-template-columns: 1fr 1fr 80px;
-          gap: 12px;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
           align-items: center;
         }
 
-        .dietitians-list .n.achieved,
-        .dietitians-list .n.target,
-        .dietitians-list .n.pct {
+        .dietitians-list .n {
+          font-weight: 600;
+          font-size: 13px;
           text-align: center;
-          justify-self: center;
+          padding: 4px 2px;
         }
 
-        .dietitians-list .zero-days .n.days {
+        .dietitians-list .n.target,
+        .dietitians-list .n.achieved {
+          color: #64748b;
+        }
+
+        .dietitians-list .n.pct {
+          font-size: 12px;
+          padding: 4px 6px;
+          border-radius: 6px;
+          min-width: 50px;
+        }
+
+        .dietitians-list .n.pct.low {
+          color: var(--low);
+          background: #fef2f2;
+        }
+
+        .dietitians-list .n.pct.warn {
+          color: var(--warn);
+          background: #fffbeb;
+        }
+
+        .dietitians-list .n.pct.good {
+          color: var(--good);
+          background: #f0fdf4;
+        }
+
+        .dietitians-list .zero-days, 
+        .dietitians-list .days-since-joining {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        .dietitians-list .n.days, 
+        .dietitians-list .n.days-joined {
           background: #ef4444;
           color: white;
           padding: 6px 12px;
@@ -1605,21 +1713,12 @@ function IssueDetailsPanel({
           font-size: 14px;
           min-width: 40px;
         }
-
-        .dietitians-list .c-name,
-        .dietitians-list .c-role {
-          padding: 0 12px;
-        }
-
-        .dietitians-list .grp {
-          padding: 0 12px;
-        }
       `}</style>
     </div>
   );
 }
 
-// Metrics Modal Component (same as main dashboard)
+// Metrics Modal Component (same as main dashboard - unchanged)
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;
   onClose: () => void;

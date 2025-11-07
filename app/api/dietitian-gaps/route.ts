@@ -57,6 +57,7 @@ export interface DietitianGap {
   salesTarget: number;
   salesAchieved: number;
   percentAchieved: number;
+  daysSinceJoining?: number; // NEW: Add days since joining
 }
 
 export async function GET(request: Request) {
@@ -91,6 +92,7 @@ export async function GET(request: Request) {
       const salesTarget = parseNumber(row[9]); // Column J
       const salesAchieved = parseNumber(row[10]); // Column K
       const percentAchieved = parseNumber(row[15]); // Column P
+      const daysSinceJoining = parseNumber(row[3]); // ✅ NEW: Column D
 
       // ✅ NEW: OR Condition for Dietitians - Exclude if:
       // 1. Name exists in Key Mapping sheet Column C OR
@@ -101,15 +103,22 @@ export async function GET(request: Request) {
       
       const shouldExcludeDietitian = excludeFromKeyMapping || excludeFromColumnM;
 
-      // ✅ Include only if not excluded AND consecutiveZeroDays >= 3
-      if (dietitianName && consecutiveZeroDays >= 3 && !shouldExcludeDietitian) {
+      // ✅ NEW: Additional condition - Column D (daysSinceJoining) must be >= 30
+      const meetsDaysSinceJoiningCriteria = daysSinceJoining >= 30;
+
+      // ✅ Include only if:
+      // - Not excluded AND 
+      // - consecutiveZeroDays >= 3 AND
+      // - daysSinceJoining >= 30
+      if (dietitianName && consecutiveZeroDays >= 3 && !shouldExcludeDietitian && meetsDaysSinceJoiningCriteria) {
         dietitianGaps.push({
           dietitianName,
           smName: smName || 'Not Assigned',
           consecutiveZeroDays,
           salesTarget,
           salesAchieved,
-          percentAchieved
+          percentAchieved,
+          daysSinceJoining // ✅ NEW: Include days since joining in the data
         });
       }
     }
