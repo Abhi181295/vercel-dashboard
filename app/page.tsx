@@ -443,7 +443,7 @@ function MetricsModal({
                 <table>
                   <thead>
                     <tr>
-                      <th>#Dietitians (ACC> 30)</th><th>Calls</th><th>Connected</th><th>Talktime (hrs)</th>
+                      <th>#Dietitians (ACC&nbsp;&gt;&nbsp;30)</th></th><th>Calls</th><th>Connected</th><th>Talktime (hrs)</th>
                       <th>Leads</th><th>Total Links</th><th>Sales Links</th><th>Conv</th><th>Sales Conv</th>
                     </tr>
                   </thead>
