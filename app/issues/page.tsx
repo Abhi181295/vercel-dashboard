@@ -689,7 +689,7 @@ export default function IssuesPage() {
               <div className="issue-count">{filteredDietitians.length}</div>
             </div>
             <p className="issue-description">
-              Dietitians with zero sales for 3+ consecutive days & 30+ days since joining
+              Dietitians with zero sales for 3+ consecutive days & 30+ ACC
               <br />
               
             </p>
@@ -1219,7 +1219,7 @@ function IssueDetailsPanel({
             <>
               <div className="issue-info">
                 <h3>Underperforming Dietitians</h3>
-                <p>Dietitians with zero sales for 3+ consecutive days & 30+ days since joining</p>
+                <p>Dietitians with zero sales for 3+ consecutive days & 30+ ACC</p>
                 <div className="issue-count-badge">{dietitians.length} Dietitians found</div>
               </div>
 
@@ -1237,7 +1237,7 @@ function IssueDetailsPanel({
                         <div className="g-title">Zero Days</div>
                       </div>
                       <div className="h-group">
-                        <div className="g-title">Days Since Joining</div>
+                        <div className="g-title">ACC</div>
                       </div>
                       <div className="h-group merged">
                         <div className="g-title">Sales</div>
