@@ -201,6 +201,9 @@ export default function IssuesPage() {
   const [underperformingAMs, setUnderperformingAMs] = useState<IssueAM[]>([]);
   const [underperformingMs, setUnderperformingMs] = useState<IssueM[]>([]);
   const [underperformingDietitians, setUnderperformingDietitians] = useState<DietitianGap[]>([]);
+  
+  // NEW: State for excluded names from Key Mapping
+  const [excludedNames, setExcludedNames] = useState<Set<string>>(new Set());
 
   // Modal state for funnel data
   const [modalOpen, setModalOpen] = useState(false);
@@ -269,6 +272,13 @@ export default function IssuesPage() {
       try {
         setLoading(true);
         
+        // Fetch excluded names from Key Mapping sheet
+        const keyMappingResponse = await fetch('/api/key-mapping');
+        if (keyMappingResponse.ok) {
+          const keyMappingData = await keyMappingResponse.json();
+          setExcludedNames(new Set(keyMappingData.excludedNames || []));
+        }
+
         const [hierarchyResponse, dietitianGapsResponse] = await Promise.all([
           fetch('/api/hierarchy'),
           fetch('/api/dietitian-gaps')
@@ -319,7 +329,7 @@ export default function IssuesPage() {
     loadData();
   }, [isAuthenticated, userRole, userName]);
 
-  // Calculate underperforming AMs (≤ 25% of daily target)
+  // Calculate underperforming AMs (≤ 25% of daily target) with exclusion - ONLY Key Mapping Column C
   const calculateUnderperformingAMs = useMemo(() => {
     if (!selectedSM) return [];
 
@@ -337,6 +347,11 @@ export default function IssuesPage() {
     });
 
     allAMs.forEach(am => {
+      // ✅ ONLY Key Mapping Column C check for AMs
+      if (excludedNames.has(am.name.toLowerCase())) {
+        return; // Skip excluded AMs
+      }
+
       const achieved = am.achieved?.service?.y || 0;
       const target = am.scaledTargets?.service?.y || am.targets?.service || 0;
       const performancePct = target > 0 ? (achieved / target) * 100 : 0;
@@ -358,9 +373,9 @@ export default function IssuesPage() {
     });
 
     return underperformers;
-  }, [selectedSM]);
+  }, [selectedSM, excludedNames]);
 
-  // NEW: Calculate underperforming Managers (≤ 25% of daily target)
+  // Calculate underperforming Managers (≤ 25% of daily target) with exclusion - ONLY Key Mapping Column C
   const calculateUnderperformingMs = useMemo(() => {
     if (!selectedSM) return [];
 
@@ -368,6 +383,11 @@ export default function IssuesPage() {
     const managers: any[] = selectedSM.children || [];
 
     managers.forEach((m: any) => {
+      // ✅ ONLY Key Mapping Column C check for Managers
+      if (excludedNames.has(m.name.toLowerCase())) {
+        return; // Skip excluded Managers
+      }
+
       const achieved = m.achieved?.service?.y || 0;
       const target = m.scaledTargets?.service?.y || m.targets?.service || 0;
       const performancePct = target > 0 ? (achieved / target) * 100 : 0;
@@ -389,9 +409,10 @@ export default function IssuesPage() {
     });
 
     return underperformers;
-  }, [selectedSM]);
+  }, [selectedSM, excludedNames]);
 
-  // 🔧 FIX: Filter dietitians by selected SM for admins; for SM users, filter by their own name
+  // Filter dietitians by selected SM for admins; for SM users, filter by their own name
+  // Dietitians are already filtered in the API with OR condition (Key Mapping Column C OR Column M = "YES")
   const filteredDietitians = useMemo(() => {
     if (userRole === 'sm') {
       return underperformingDietitians.filter(dietitian => 
@@ -649,6 +670,8 @@ export default function IssuesPage() {
             </div>
             <p className="issue-description">
               AMs & Ms performing at or below 25% of their daily target
+              <br />
+              <small>Excludes: Names in Key Mapping Column C</small>
             </p>
             <button 
               className="view-details-btn"
@@ -667,6 +690,8 @@ export default function IssuesPage() {
             </div>
             <p className="issue-description">
               Dietitians with zero sales for 3+ consecutive days
+              <br />
+              <small>Excludes: Key Mapping Column C OR Column M = "YES"</small>
             </p>
             <button 
               className="view-details-btn"
@@ -702,7 +727,7 @@ export default function IssuesPage() {
         />
       </section>
 
-      {/* ⛔ CSS below is exactly as in your file — unchanged */}
+      {/* CSS remains exactly the same */}
       <style jsx global>{`
         .issues-grid {
           display: grid;
@@ -754,6 +779,12 @@ export default function IssuesPage() {
           color: var(--muted);
           font-size: 14px;
           line-height: 1.5;
+        }
+
+        .issue-description small {
+          font-size: 12px;
+          color: #94a3b8;
+          font-style: italic;
         }
 
         .view-details-btn {

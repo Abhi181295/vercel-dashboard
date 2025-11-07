@@ -61,8 +61,22 @@ export interface DietitianGap {
 
 export async function GET(request: Request) {
   try {
-    // Fetch data from Dietitian Gaps sheet
-    const gapsData = await getSheetData('Dietitian Gaps!A2:Q'); // Columns A to Q
+    // Fetch data from both sheets
+    const [gapsData, keyMappingData] = await Promise.all([
+      getSheetData('Dietitian Gaps!A2:Q'), // Columns A to Q
+      getSheetData('Key Mapping!C2:C') // Column C only, starting from row 2
+    ]);
+
+    // Create a Set of names to exclude from Key Mapping sheet
+    const excludedNames = new Set<string>();
+    if (keyMappingData && keyMappingData.length > 0) {
+      keyMappingData.forEach((row: string[]) => {
+        const name = row[0]?.trim();
+        if (name) {
+          excludedNames.add(name.toLowerCase());
+        }
+      });
+    }
 
     const dietitianGaps: DietitianGap[] = [];
 
@@ -78,11 +92,17 @@ export async function GET(request: Request) {
       const salesAchieved = parseNumber(row[10]); // Column K
       const percentAchieved = parseNumber(row[15]); // Column P
 
-      // ✅ NEW: Column M exclusion flag
+      // ✅ NEW: OR Condition for Dietitians - Exclude if:
+      // 1. Name exists in Key Mapping sheet Column C OR
+      // 2. Column M is marked "YES"
+      const excludeFromKeyMapping = dietitianName && excludedNames.has(dietitianName.toLowerCase());
       const excludeFlag = (row[12] || '').trim().toUpperCase(); // Column M
+      const excludeFromColumnM = excludeFlag === 'YES';
+      
+      const shouldExcludeDietitian = excludeFromKeyMapping || excludeFromColumnM;
 
-      // ✅ Include only if not marked "YES" in column M
-      if (dietitianName && consecutiveZeroDays >= 3 && excludeFlag !== 'YES') {
+      // ✅ Include only if not excluded AND consecutiveZeroDays >= 3
+      if (dietitianName && consecutiveZeroDays >= 3 && !shouldExcludeDietitian) {
         dietitianGaps.push({
           dietitianName,
           smName: smName || 'Not Assigned',
