@@ -1849,7 +1849,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                 <table>
                   <thead>
                     <tr>
-                      <th>#Dietitians (ACC> 30)</th>
+                      <th>#Dietitians (ACC&nbsp;&gt;&nbsp;30)</th>
                       <th>Calls</th>
                       <th>Connected</th>
                       <th>Talktime (hrs)</th>
