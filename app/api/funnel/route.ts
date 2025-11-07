@@ -196,7 +196,7 @@ export async function GET(request: Request) {
       if (rowName && rowName.toLowerCase() === name.toLowerCase()) {
         if (columnEValue && columnEValue !== '' && !isNaN(Number(columnEValue))) {
           const columnENumber = parseNumber(columnEValue);
-          if (columnENumber >= 0) {
+          if (columnENumber >= 30) {
             teamSize++;
           }
         }
