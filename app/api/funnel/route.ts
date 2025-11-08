@@ -165,12 +165,14 @@ export async function GET(request: Request) {
 
     // Map roles to column indices
     const roleColumns = {
-      'EM': 5,        // Column F — NEW
+      'EM': 5,        // Column F
       'FLAP': 6,      // Column G
       'AM': 7,        // Column H
       'M': 8,         // Column I
       'Manager': 8,   // Column I
-      'SM': 9         // Column J
+      'SM': 9,        // Column J
+      'Dietitian': 1, // Column B — NEW
+      'D': 1          // Alias — NEW
     } as const;
 
     const columnIndex = roleColumns[role as keyof typeof roleColumns];
@@ -181,6 +183,7 @@ export async function GET(request: Request) {
       );
     }
 
+    // Tally accumulators
     let teamSize = 0;
     const tallies = {
       ytd: { calls: 0, connected: 0, talktime: 0, leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 },
@@ -188,26 +191,46 @@ export async function GET(request: Request) {
       mtd: { calls: 0, connected: 0, talktime: 0, leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 }
     };
 
-    // Calculate team size first - COUNTIFS logic (Column E must be numeric ≥ 0)
-    for (const row of funnelData) {
-      const rowName = row[columnIndex]?.trim();
-      const columnEValue = row[4]; // Column E raw value
-      
-      if (rowName && rowName.toLowerCase() === name.toLowerCase()) {
-        if (columnEValue && columnEValue !== '' && !isNaN(Number(columnEValue))) {
-          const columnENumber = parseNumber(columnEValue);
-          if (columnENumber >= 30) {
-            teamSize++;
+    // --- Team size logic ------------------------------------------------------
+    // For aggregate roles (SM/M/AM/FLAP): count # of Dts with Column E >= 30
+    // For a single Dietitian: teamSize should be 1 if ANY matching row has E >= 30, else 0
+    if (role === 'Dietitian' || role === 'D') {
+      let eligible = false;
+      for (const row of funnelData) {
+        const rowName = row[columnIndex]?.trim();
+        if (rowName && rowName.toLowerCase() === name.toLowerCase()) {
+          const columnEValue = row[4];
+          if (columnEValue !== '' && columnEValue != null && !isNaN(Number(columnEValue))) {
+            const e = parseNumber(columnEValue);
+            if (e >= 30) {
+              eligible = true;
+              break;
+            }
+          }
+        }
+      }
+      teamSize = eligible ? 1 : 0;
+    } else {
+      for (const row of funnelData) {
+        const rowName = row[columnIndex]?.trim();
+        const columnEValue = row[4]; // Column E raw value
+        
+        if (rowName && rowName.toLowerCase() === name.toLowerCase()) {
+          if (columnEValue && columnEValue !== '' && !isNaN(Number(columnEValue))) {
+            const columnENumber = parseNumber(columnEValue);
+            if (columnENumber >= 30) {
+              teamSize++;
+            }
           }
         }
       }
     }
 
-    // Calculate tallies (only if teamSize > 0)
-    if (teamSize > 0) {
+    // --- Sum tallies for matching rows (unchanged math) -----------------------
+    if ((role === 'Dietitian' || role === 'D') ? true : teamSize > 0) {
       for (const row of funnelData) {
         const rowName = row[columnIndex]?.trim();
-        const columnEValue = row[4]; // Column E raw value
+        const columnEValue = row[4];
         
         if (rowName && rowName.toLowerCase() === name.toLowerCase()) {
           if (columnEValue && columnEValue !== '' && !isNaN(Number(columnEValue))) {

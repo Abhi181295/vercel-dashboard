@@ -955,7 +955,6 @@ export default function IssuesPage() {
 }
 
 // Issue Details Panel Component - Updated to show Days Since Joining
-// Issue Details Panel Component - Updated to show Days Since Joining
 function IssueDetailsPanel({ 
   isOpen, 
   onClose, 
@@ -1118,7 +1117,6 @@ function IssueDetailsPanel({
                     <div className="thead">
                       <div className="h-name">
                         <div className="h-title">Manager Name</div>
-                        <div className="h-sub">Team members</div>
                       </div>
                       <div className="h-role">
                         <div className="h-title">Role</div>
@@ -1262,23 +1260,35 @@ function IssueDetailsPanel({
                             </div>
                           </div>
 
-                          {/* Days Since Joining */}
+                          {/* Days Since Joining (label shown as ACC as per your existing UI) */}
                           <div className="grp">
                             <div className="days-since-joining">
                               <div className="n days-joined">{dietitian.daysSinceJoining || 0}</div>
                             </div>
                           </div>
                           
-                          {/* Sales Metrics */}
+                          {/* Sales Metrics - NOW CLICKABLE to open modal for Dietitian (MTD) */}
                           <div className="grp">
                             <div className="nums">
-                              <div className="n target">
+                              <div
+                                className="n target clickable"
+                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                title="View Funnel (MTD)"
+                              >
                                 {fmtLakhs(dietitian.salesTarget)}
                               </div>
-                              <div className="n achieved">
+                              <div
+                                className="n achieved clickable"
+                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                title="View Funnel (MTD)"
+                              >
                                 {fmtLakhs(dietitian.salesAchieved)}
                               </div>
-                              <div className={`n pct ${getPercentageColor(dietitian.percentAchieved)}`}>
+                              <div
+                                className={`n pct ${getPercentageColor(dietitian.percentAchieved)} clickable`}
+                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                title="View Performance (MTD)"
+                              >
                                 {dietitian.percentAchieved}%
                               </div>
                             </div>
@@ -1298,7 +1308,7 @@ function IssueDetailsPanel({
         </div>
       </div>
 
-      {/* Updated CSS for proper alignment */}
+      {/* Updated CSS for proper alignment (UNCHANGED STYLES) */}
       <style jsx>{`
         .panel-overlay {
           position: fixed;
@@ -1718,7 +1728,7 @@ function IssueDetailsPanel({
   );
 }
 
-// Metrics Modal Component (same as main dashboard - unchanged)
+// Metrics Modal Component (unchanged)
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;
   onClose: () => void;
