@@ -689,7 +689,7 @@ function DashboardPage() {
           <nav className="nav">
             <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
             <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
-            <a className="nav-item" onClick={() => router.push('/')}><span className="i">✅</span> Quality</a>
+            <a className="nav-item" onClick={() => router.push('/quality')}><span className="i">✅</span> Quality</a>
             <a className="nav-item" onClick={() => router.push('/issues')}><span className="i">🛠️</span> Issues</a>
             <a className="nav-item" onClick={() => router.push('/')}><span className="i">📊</span> Analytics</a>
           </nav>
@@ -718,7 +718,7 @@ function DashboardPage() {
           <nav className="nav">
             <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
             <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
-            <a className="nav-item" onClick={() => router.push('/')}><span className="i">✅</span> Quality</a>
+            <a className="nav-item" onClick={() => router.push('/quality')}><span className="i">✅</span> Quality</a>
             <a className="nav-item" onClick={() => router.push('/issues')}><span className="i">🛠️</span> Issues</a>
             <a className="nav-item" onClick={() => router.push('/')}><span className="i">📊</span> Analytics</a>
           </nav>
@@ -752,7 +752,7 @@ function DashboardPage() {
         <nav className="nav">
           <a className="nav-item active" onClick={() => router.push('/')}><span className="i">🏠</span> Dashboard</a>
           <a className="nav-item" onClick={() => router.push('/')}><span className="i">👥</span> Revenue</a>
-          <a className="nav-item" onClick={() => router.push('/')}><span className="i">✅</span> Quality</a>
+          <a className="nav-item" onClick={() => router.push('/quality')}><span className="i">✅</span> Quality</a>
           <a className="nav-item" onClick={() => router.push('/issues')}><span className="i">🛠️</span> Issues</a>
           <a className="nav-item" onClick={() => router.push('/')}><span className="i">📊</span> Analytics</a>
         </nav>

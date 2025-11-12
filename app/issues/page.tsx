@@ -496,6 +496,9 @@ export default function IssuesPage() {
             <a className="nav-item" onClick={() => router.push('/')}>
               <span className="i">👥</span> Revenue
             </a>
+			<a className="nav-item" onClick={() => router.push('/quality')}>
+              <span className="i">✅</span> Quality
+            </a>
             <a className="nav-item active">
               <span className="i">🛠️</span> Issues
             </a>
@@ -536,6 +539,9 @@ export default function IssuesPage() {
             </a>
             <a className="nav-item" onClick={() => router.push('/')}>
               <span className="i">👥</span> Revenue
+            </a>
+			<a className="nav-item" onClick={() => router.push('/quality')}>
+              <span className="i">✅</span> Quality
             </a>
             <a className="nav-item active">
               <span className="i">🛠️</span> Issues
@@ -591,6 +597,9 @@ export default function IssuesPage() {
           <a className="nav-item" onClick={() => router.push('/')}>
             <span className="i">👥</span> Revenue
           </a>
+		  <a className="nav-item" onClick={() => router.push('/quality')}>
+              <span className="i">✅</span> Quality
+            </a>
           <a className="nav-item active">
             <span className="i">🛠️</span> Issues
           </a>
