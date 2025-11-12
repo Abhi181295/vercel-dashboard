@@ -54,12 +54,19 @@ function isValidWeightLossValue(value: number): boolean {
   return value !== 0 && !isNaN(value); // Filter out 0 and NaN values
 }
 
+interface QualityItem {
+  avgWeeklyWeightLoss: number;
+  weeklyOnTrackPct: number;
+  monthlyOnTrackPct: number;
+  _customers?: Set<string>;
+  _weeklySum?: number;
+  _weeklyCount?: number;
+  _weeklyOnTrackCount?: number;
+  _monthlyOnTrackCount?: number;
+}
+
 export interface QualityData {
-  [name: string]: {
-    avgWeeklyWeightLoss: number;
-    weeklyOnTrackPct: number;
-    monthlyOnTrackPct: number;
-  };
+  [name: string]: QualityItem;
 }
 
 export async function GET() {
@@ -109,36 +116,34 @@ export async function GET() {
           quality[key] = {
             avgWeeklyWeightLoss: 0,
             weeklyOnTrackPct: 0,
-            monthlyOnTrackPct: 0
+            monthlyOnTrackPct: 0,
+            _customers: new Set(),
+            _weeklySum: 0,
+            _weeklyCount: 0,
+            _weeklyOnTrackCount: 0,
+            _monthlyOnTrackCount: 0
           };
         }
         
-        // Initialize tracking objects if they don't exist
-        if (!quality[key]._customers) quality[key]._customers = new Set();
-        if (!quality[key]._weeklySum) quality[key]._weeklySum = 0;
-        if (!quality[key]._weeklyCount) quality[key]._weeklyCount = 0;
-        if (!quality[key]._weeklyOnTrackCount) quality[key]._weeklyOnTrackCount = 0;
-        if (!quality[key]._monthlyOnTrackCount) quality[key]._monthlyOnTrackCount = 0;
-        
         // Track unique customers
         if (customerId) {
-          quality[key]._customers.add(customerId);
+          quality[key]._customers!.add(customerId);
         }
         
         // Track weekly weight loss data for average - ONLY if valid
         if (isValidWeightLossValue(weeklyWeightLoss)) {
-          quality[key]._weeklySum += weeklyWeightLoss;
-          quality[key]._weeklyCount += 1;
+          quality[key]._weeklySum! += weeklyWeightLoss;
+          quality[key]._weeklyCount! += 1;
         }
         
         // Track weekly on-track count (AA ≤ -0.5) - ONLY if valid
         if (isValidWeightLossValue(weeklyWeightLoss) && weeklyWeightLoss <= -0.5) {
-          quality[key]._weeklyOnTrackCount += 1;
+          quality[key]._weeklyOnTrackCount! += 1;
         }
         
         // Track monthly on-track count (AB ≤ -0.5) - ONLY if valid
         if (isValidWeightLossValue(monthlyWeightLoss) && monthlyWeightLoss <= -0.5) {
-          quality[key]._monthlyOnTrackCount += 1;
+          quality[key]._monthlyOnTrackCount! += 1;
         }
       };
 
@@ -155,22 +160,22 @@ export async function GET() {
       const uniqueCustomers = quality[key]._customers?.size || 0;
       
       // Calculate average weekly weight loss - REMOVED ROUNDING
-      if (quality[key]._weeklyCount && quality[key]._weeklyCount > 0) {
-        quality[key].avgWeeklyWeightLoss = quality[key]._weeklySum / quality[key]._weeklyCount; // No rounding - let frontend format
+      if (quality[key]._weeklyCount && quality[key]._weeklyCount! > 0) {
+        quality[key].avgWeeklyWeightLoss = quality[key]._weeklySum! / quality[key]._weeklyCount!; // No rounding - let frontend format
       } else {
         quality[key].avgWeeklyWeightLoss = 0;
       }
       
       // Calculate % weekly on track
       if (uniqueCustomers > 0) {
-        quality[key].weeklyOnTrackPct = Math.round((quality[key]._weeklyOnTrackCount / uniqueCustomers) * 1000) / 10; // Round to 1 decimal
+        quality[key].weeklyOnTrackPct = Math.round((quality[key]._weeklyOnTrackCount! / uniqueCustomers) * 1000) / 10; // Round to 1 decimal
       } else {
         quality[key].weeklyOnTrackPct = 0;
       }
       
       // Calculate % monthly on track
       if (uniqueCustomers > 0) {
-        quality[key].monthlyOnTrackPct = Math.round((quality[key]._monthlyOnTrackCount / uniqueCustomers) * 1000) / 10; // Round to 1 decimal
+        quality[key].monthlyOnTrackPct = Math.round((quality[key]._monthlyOnTrackCount! / uniqueCustomers) * 1000) / 10; // Round to 1 decimal
       } else {
         quality[key].monthlyOnTrackPct = 0;
       }
