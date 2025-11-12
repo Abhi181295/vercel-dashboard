@@ -1,5 +1,3 @@
-//app/api/customer-rating/route.ts
-
 import { NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
 
@@ -50,14 +48,26 @@ function parseNumber(value: any): number {
   return isNaN(Number(num)) ? 0 : Number(num);
 }
 
+interface CustomerRatingItem {
+  ytdAvgCSAT: number;
+  wtdAvgCSAT: number;
+  latestCSAT: number;
+  ytdAvgNPS: number;
+  mtdAvgNPS: number;
+  _ytdCSATSum?: number;
+  _ytdCSATCount?: number;
+  _wtdCSATSum?: number;
+  _wtdCSATCount?: number;
+  _latestCSATSum?: number;
+  _latestCSATCount?: number;
+  _ytdNPSSum?: number;
+  _ytdNPSCount?: number;
+  _mtdNPSSum?: number;
+  _mtdNPSCount?: number;
+}
+
 export interface CustomerRatingData {
-  [name: string]: {
-    ytdAvgCSAT: number;
-    wtdAvgCSAT: number;
-    latestCSAT: number;
-    ytdAvgNPS: number;
-    mtdAvgNPS: number;
-  };
+  [name: string]: CustomerRatingItem;
 }
 
 export async function GET() {
@@ -105,51 +115,49 @@ export async function GET() {
             wtdAvgCSAT: 0,
             latestCSAT: 0,
             ytdAvgNPS: 0,
-            mtdAvgNPS: 0
+            mtdAvgNPS: 0,
+            _ytdCSATSum: 0,
+            _ytdCSATCount: 0,
+            _wtdCSATSum: 0,
+            _wtdCSATCount: 0,
+            _latestCSATSum: 0,
+            _latestCSATCount: 0,
+            _ytdNPSSum: 0,
+            _ytdNPSCount: 0,
+            _mtdNPSSum: 0,
+            _mtdNPSCount: 0
           };
-          
-          // Initialize tracking objects
-          customerRating[key]._ytdCSATSum = 0;
-          customerRating[key]._ytdCSATCount = 0;
-          customerRating[key]._wtdCSATSum = 0;
-          customerRating[key]._wtdCSATCount = 0;
-          customerRating[key]._latestCSATSum = 0;
-          customerRating[key]._latestCSATCount = 0;
-          customerRating[key]._ytdNPSSum = 0;
-          customerRating[key]._ytdNPSCount = 0;
-          customerRating[key]._mtdNPSSum = 0;
-          customerRating[key]._mtdNPSCount = 0;
         }
         
         // CUSTOMER RATING METRICS (with ACC >= 30 filter already applied)
         // YTD CSAT (Column V)
         if (ytdCSAT > 0) {
-          customerRating[key]._ytdCSATSum += ytdCSAT;
-          customerRating[key]._ytdCSATCount += 1;
+          customerRating[key]._ytdCSATSum! += ytdCSAT;
+          customerRating[key]._ytdCSATCount! += 1;
         }
         
         // WTD CSAT (Column W)
         if (wtdCSAT > 0) {
-          customerRating[key]._wtdCSATSum += wtdCSAT;
-          customerRating[key]._wtdCSATCount += 1;
+          customerRating[key]._wtdCSATSum! += wtdCSAT;
+          customerRating[key]._wtdCSATCount! += 1;
         }
         
         // Latest CSAT (Column X) - Calculate average like others
         if (latestCSAT > 0) {
-          customerRating[key]._latestCSATSum += latestCSAT;
-          customerRating[key]._latestCSATCount += 1;
+          customerRating[key]._latestCSATSum! += latestCSAT;
+          customerRating[key]._latestCSATCount! += 1;
         }
         
         // YTD NPS (Column Y)
         if (ytdNPS > 0) {
-          customerRating[key]._ytdNPSSum += ytdNPS;
-          customerRating[key]._ytdNPSCount += 1;
+          customerRating[key]._ytdNPSSum! += ytdNPS;
+          customerRating[key]._ytdNPSCount! += 1;
         }
         
         // MTD NPS (Column Z)
         if (mtdNPS > 0) {
-          customerRating[key]._mtdNPSSum += mtdNPS;
-          customerRating[key]._mtdNPSCount += 1;
+          customerRating[key]._mtdNPSSum! += mtdNPS;
+          customerRating[key]._mtdNPSCount! += 1;
         }
       };
 
@@ -167,27 +175,27 @@ export async function GET() {
       
       // Calculate YTD Avg CSAT
       if (item._ytdCSATCount && item._ytdCSATCount > 0) {
-        item.ytdAvgCSAT = Math.round((item._ytdCSATSum / item._ytdCSATCount) * 10) / 10;
+        item.ytdAvgCSAT = Math.round((item._ytdCSATSum! / item._ytdCSATCount) * 10) / 10;
       }
       
       // Calculate WTD Avg CSAT
       if (item._wtdCSATCount && item._wtdCSATCount > 0) {
-        item.wtdAvgCSAT = Math.round((item._wtdCSATSum / item._wtdCSATCount) * 10) / 10;
+        item.wtdAvgCSAT = Math.round((item._wtdCSATSum! / item._wtdCSATCount) * 10) / 10;
       }
       
       // Calculate Latest CSAT Average
       if (item._latestCSATCount && item._latestCSATCount > 0) {
-        item.latestCSAT = Math.round((item._latestCSATSum / item._latestCSATCount) * 10) / 10;
+        item.latestCSAT = Math.round((item._latestCSATSum! / item._latestCSATCount) * 10) / 10;
       }
       
       // Calculate YTD Avg NPS
       if (item._ytdNPSCount && item._ytdNPSCount > 0) {
-        item.ytdAvgNPS = Math.round((item._ytdNPSSum / item._ytdNPSCount) * 10) / 10;
+        item.ytdAvgNPS = Math.round((item._ytdNPSSum! / item._ytdNPSCount) * 10) / 10;
       }
       
       // Calculate MTD Avg NPS
       if (item._mtdNPSCount && item._mtdNPSCount > 0) {
-        item.mtdAvgNPS = Math.round((item._mtdNPSSum / item._mtdNPSCount) * 10) / 10;
+        item.mtdAvgNPS = Math.round((item._mtdNPSSum! / item._mtdNPSCount) * 10) / 10;
       }
       
       // Remove temporary properties
