@@ -115,7 +115,7 @@ type DietitianGap = {
   daysSinceJoining?: number; // ✅ NEW: Add days since joining
 };
 
-// Funnel Data Interface (reuse from main dashboard)
+// Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
 interface FunnelData {
   teamSize: number;
   rawTallies: {
@@ -123,6 +123,8 @@ interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number;
+      talktimeFollowup: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -133,6 +135,8 @@ interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number;
+      talktimeFollowup: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -143,6 +147,8 @@ interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number;
+      talktimeFollowup: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -155,6 +161,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -165,6 +173,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -175,6 +185,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -1737,7 +1749,7 @@ function IssueDetailsPanel({
   );
 }
 
-// Metrics Modal Component (unchanged)
+// Metrics Modal Component - UPDATED WITH NEW METRICS
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;
   onClose: () => void;
@@ -1872,6 +1884,8 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                       <th>Calls</th>
                       <th>Connected</th>
                       <th>Talktime (hrs)</th>
+                      <th>Talktime - Counselling (hrs)</th>
+                      <th>Talktime - Follow up (hrs)</th>
                       <th>Leads</th>
                       <th>Total Links</th>
                       <th>Sales Links</th>
@@ -1885,6 +1899,8 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                       <td>{formatNumber(rawData?.calls || 0)}</td>
                       <td>{formatNumber(rawData?.connected || 0)}</td>
                       <td>{formatNumber(rawData?.talktime || 0)}</td>
+                      <td>{formatNumber(rawData?.talktimeCounselling || 0)}</td>
+                      <td>{formatNumber(rawData?.talktimeFollowup || 0)}</td>
                       <td>{formatNumber(rawData?.leads || 0)}</td>
                       <td>{formatNumber(rawData?.totalLinks || 0)}</td>
                       <td>{formatNumber(rawData?.salesLinks || 0)}</td>
@@ -1905,6 +1921,8 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                       <th>Call per Dt. per day</th>
                       <th>Connectivity %</th>
                       <th>TT per connected call (min)</th>
+                      <th>TT Counselling per connected call (min)</th>
+                      <th>TT Follow up per connected call (min)</th>
                       <th>Leads per Dt. per day</th>
                       <th>Lead % vs Connected Call</th>
                       <th>Might Pay %</th>
@@ -1917,6 +1935,8 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                       <td>{formatNumber(metricsData?.callsPerDtPerDay || 0)}</td>
                       <td>{formatPercentage(metricsData?.connectivity || 0)}</td>
                       <td>{formatNumber(metricsData?.ttPerConnectedCall || 0)}</td>
+                      <td>{formatNumber(metricsData?.ttCounsellingPerConnectedCall || 0)}</td>
+                      <td>{formatNumber(metricsData?.ttFollowupPerConnectedCall || 0)}</td>
                       <td>{formatNumber(metricsData?.leadsPerDtPerDay || 0)}</td>
                       <td>{formatPercentage(metricsData?.leadVsConnected || 0)}</td>
                       <td>{formatPercentage(metricsData?.mightPay || 0)}</td>

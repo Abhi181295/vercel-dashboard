@@ -85,6 +85,10 @@ export interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number;
+      talktimeFollowup: number;
+      counsellingConnected: number; // NEW: for denominator
+      followupConnected: number;    // NEW: for denominator
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -95,6 +99,10 @@ export interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number;
+      talktimeFollowup: number;
+      counsellingConnected: number; // NEW: for denominator
+      followupConnected: number;    // NEW: for denominator
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -105,6 +113,10 @@ export interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number;
+      talktimeFollowup: number;
+      counsellingConnected: number; // NEW: for denominator
+      followupConnected: number;    // NEW: for denominator
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -117,6 +129,8 @@ export interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -127,6 +141,8 @@ export interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -137,6 +153,8 @@ export interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -159,8 +177,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Fetch data from Dietitian Funnel sheet
-    const funnelData = await getSheetData('Dietitian Funnel!A2:AH');
+    // Fetch data from Dietitian Funnel sheet - UPDATED RANGE
+    const funnelData = await getSheetData('Dietitian Funnel!A2:AT');
     const { daysWTD, daysMTD } = calculateDays();
 
     // Map roles to column indices
@@ -183,12 +201,24 @@ export async function GET(request: Request) {
       );
     }
 
-    // Tally accumulators
+    // Tally accumulators - UPDATED WITH NEW FIELDS
     let teamSize = 0;
     const tallies = {
-      ytd: { calls: 0, connected: 0, talktime: 0, leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 },
-      wtd: { calls: 0, connected: 0, talktime: 0, leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 },
-      mtd: { calls: 0, connected: 0, talktime: 0, leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 }
+      ytd: { 
+        calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
+        counsellingConnected: 0, followupConnected: 0, // NEW
+        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 
+      },
+      wtd: { 
+        calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
+        counsellingConnected: 0, followupConnected: 0, // NEW
+        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 
+      },
+      mtd: { 
+        calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
+        counsellingConnected: 0, followupConnected: 0, // NEW
+        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 
+      }
     };
 
     // --- Team size logic ------------------------------------------------------
@@ -226,7 +256,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // --- Sum tallies for matching rows (unchanged math) -----------------------
+    // --- Sum tallies for matching rows (UPDATED WITH NEW COLUMNS) -----------------------
     if ((role === 'Dietitian' || role === 'D') ? true : teamSize > 0) {
       for (const row of funnelData) {
         const rowName = row[columnIndex]?.trim();
@@ -265,19 +295,41 @@ export async function GET(request: Request) {
               tallies.mtd.salesLinks += parseNumber(row[32]); // AG
               tallies.mtd.conv += parseNumber(row[31]) + parseNumber(row[33]); // AF + AH
               tallies.mtd.salesConv += parseNumber(row[33]); // AH
+
+              // New columns for Talktime - Counselling (AI-AK)
+              tallies.ytd.talktimeCounselling += parseNumber(row[34]) / 3600; // AI -> hours
+              tallies.wtd.talktimeCounselling += parseNumber(row[35]) / 3600; // AJ -> hours
+              tallies.mtd.talktimeCounselling += parseNumber(row[36]) / 3600; // AK -> hours
+
+              // New columns for Talktime - Follow up (AL-AN)
+              tallies.ytd.talktimeFollowup += parseNumber(row[37]) / 3600; // AL -> hours
+              tallies.wtd.talktimeFollowup += parseNumber(row[38]) / 3600; // AM -> hours
+              tallies.mtd.talktimeFollowup += parseNumber(row[39]) / 3600; // AN -> hours
+
+              // NEW: Counselling Connected (denominator for ttCounsellingPerConnectedCall)
+              tallies.ytd.counsellingConnected += parseNumber(row[40]); // AO -> YTD
+              tallies.wtd.counsellingConnected += parseNumber(row[41]); // AP -> WTD
+              tallies.mtd.counsellingConnected += parseNumber(row[42]); // AQ -> MTD
+
+              // NEW: Followup Connected (denominator for ttFollowupPerConnectedCall)
+              tallies.ytd.followupConnected += parseNumber(row[43]); // AR -> YTD
+              tallies.wtd.followupConnected += parseNumber(row[44]); // AS -> WTD
+              tallies.mtd.followupConnected += parseNumber(row[45]); // AT -> MTD
             }
           }
         }
       }
     }
 
-    // Derived metrics
+    // Derived metrics - UPDATED WITH NEW DENOMINATORS
     const calculateMetrics = (period: keyof typeof tallies, days: number) => {
       const data = tallies[period];
       return {
         callsPerDtPerDay: teamSize > 0 && days > 0 ? data.calls / (teamSize * days) : 0,
         connectivity: safeDivide(data.connected, data.calls),
         ttPerConnectedCall: safeDivide(data.talktime * 60, data.connected), // minutes
+        ttCounsellingPerConnectedCall: safeDivide(data.talktimeCounselling * 60, data.counsellingConnected), // minutes - UPDATED DENOMINATOR
+        ttFollowupPerConnectedCall: safeDivide(data.talktimeFollowup * 60, data.followupConnected), // minutes - UPDATED DENOMINATOR
         leadsPerDtPerDay: teamSize > 0 && days > 0 ? data.leads / (teamSize * days) : 0,
         leadVsConnected: safeDivide(data.leads, data.connected),
         mightPay: safeDivide(data.totalLinks, data.leads),

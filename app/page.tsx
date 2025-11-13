@@ -332,6 +332,8 @@ function buildHierarchy(
   return Array.from(smMap.values());
 }
 
+// ... (previous imports and code remains exactly the same until the MetricsModal component)
+
 function MetricsModal({
   isOpen,
   onClose,
@@ -443,8 +445,17 @@ function MetricsModal({
                 <table>
                   <thead>
                     <tr>
-                      <th>#Dietitians (ACC&nbsp;&gt;&nbsp;30)</th><th>Calls</th><th>Connected</th><th>Talktime (hrs)</th>
-                      <th>Leads</th><th>Total Links</th><th>Sales Links</th><th>Conv</th><th>Sales Conv</th>
+                      <th>#Dietitians (ACC&nbsp;&gt;&nbsp;30)</th>
+                      <th>Calls</th>
+                      <th>Connected</th>
+                      <th>Talktime (hrs)</th>
+                      <th>Talktime - Counselling (hrs)</th>
+                      <th>Talktime - Follow up (hrs)</th>
+                      <th>Leads</th>
+                      <th>Total Links</th>
+                      <th>Sales Links</th>
+                      <th>Conv</th>
+                      <th>Sales Conv</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -453,6 +464,8 @@ function MetricsModal({
                       <td>{formatNumber(rawData?.calls || 0)}</td>
                       <td>{formatNumber(rawData?.connected || 0)}</td>
                       <td>{formatNumber(rawData?.talktime || 0)}</td>
+                      <td>{formatNumber(rawData?.talktimeCounselling || 0)}</td>
+                      <td>{formatNumber(rawData?.talktimeFollowup || 0)}</td>
                       <td>{formatNumber(rawData?.leads || 0)}</td>
                       <td>{formatNumber(rawData?.totalLinks || 0)}</td>
                       <td>{formatNumber(rawData?.salesLinks || 0)}</td>
@@ -470,9 +483,16 @@ function MetricsModal({
                 <table>
                   <thead>
                     <tr>
-                      <th>Call per Dt. per day</th><th>Connectivity %</th><th>TT per connected call (min)</th>
-                      <th>Leads per Dt. per day</th><th>Lead % vs Connected Call</th>
-                      <th>Might Pay %</th><th>Conv %</th><th>Sales Team Conv %</th>
+                      <th>Call per Dt. per day</th>
+                      <th>Connectivity %</th>
+                      <th>TT per connected call (min)</th>
+                      <th>TT Counselling per connected call (min)</th>
+                      <th>TT Follow up per connected call (min)</th>
+                      <th>Leads per Dt. per day</th>
+                      <th>Lead % vs Connected Call</th>
+                      <th>Might Pay %</th>
+                      <th>Conv %</th>
+                      <th>Sales Team Conv %</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -480,6 +500,8 @@ function MetricsModal({
                       <td>{formatNumber(metricsData?.callsPerDtPerDay || 0)}</td>
                       <td>{formatPercentage(metricsData?.connectivity || 0)}</td>
                       <td>{formatNumber(metricsData?.ttPerConnectedCall || 0)}</td>
+                      <td>{formatNumber(metricsData?.ttCounsellingPerConnectedCall || 0)}</td>
+                      <td>{formatNumber(metricsData?.ttFollowupPerConnectedCall || 0)}</td>
                       <td>{formatNumber(metricsData?.leadsPerDtPerDay || 0)}</td>
                       <td>{formatPercentage(metricsData?.leadVsConnected || 0)}</td>
                       <td>{formatPercentage(metricsData?.mightPay || 0)}</td>
@@ -500,6 +522,8 @@ function MetricsModal({
     </div>
   );
 }
+
+// ... (rest of the app/page.tsx code remains exactly the same)
 
 function DashboardPage() {
   const router = useRouter();
