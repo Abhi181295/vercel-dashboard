@@ -125,6 +125,8 @@ interface FunnelData {
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
+      counsellingConnected: number; // ADD THIS
+      followupConnected: number;    // ADD THIS
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -137,6 +139,8 @@ interface FunnelData {
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
+      counsellingConnected: number; // ADD THIS
+      followupConnected: number;    // ADD THIS
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -149,6 +153,8 @@ interface FunnelData {
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
+      counsellingConnected: number; // ADD THIS
+      followupConnected: number;    // ADD THIS
       leads: number;
       totalLinks: number;
       salesLinks: number;

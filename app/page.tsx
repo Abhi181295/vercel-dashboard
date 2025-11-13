@@ -19,6 +19,10 @@ interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number; // ADD THIS
+      talktimeFollowup: number;    // ADD THIS
+      counsellingConnected: number; // ADD THIS (if needed for calculations)
+      followupConnected: number;    // ADD THIS (if needed for calculations)
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -29,6 +33,10 @@ interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number; // ADD THIS
+      talktimeFollowup: number;    // ADD THIS
+      counsellingConnected: number; // ADD THIS (if needed for calculations)
+      followupConnected: number;    // ADD THIS (if needed for calculations)
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -39,6 +47,10 @@ interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
+      talktimeCounselling: number; // ADD THIS
+      talktimeFollowup: number;    // ADD THIS
+      counsellingConnected: number; // ADD THIS (if needed for calculations)
+      followupConnected: number;    // ADD THIS (if needed for calculations)
       leads: number;
       totalLinks: number;
       salesLinks: number;
@@ -51,6 +63,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number; // ADD THIS
+      ttFollowupPerConnectedCall: number;    // ADD THIS
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -61,6 +75,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number; // ADD THIS
+      ttFollowupPerConnectedCall: number;    // ADD THIS
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -71,6 +87,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
+      ttCounsellingPerConnectedCall: number; // ADD THIS
+      ttFollowupPerConnectedCall: number;    // ADD THIS
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
