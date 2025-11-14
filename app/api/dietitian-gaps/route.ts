@@ -57,14 +57,19 @@ export interface DietitianGap {
   salesTarget: number;
   salesAchieved: number;
   percentAchieved: number;
-  daysSinceJoining?: number; // NEW: Add days since joining
+  daysSinceJoining?: number;
+  // NEW: Commerce fields
+  commerceTarget?: number;
+  commerceAchieved?: number;
+  commercePercentAchieved?: number;
+  commerceConsecutiveZeroDays?: number;
 }
 
 export async function GET(request: Request) {
   try {
-    // Fetch data from both sheets
+    // Fetch data from both sheets - extended range to include commerce columns (A to T)
     const [gapsData, keyMappingData] = await Promise.all([
-      getSheetData('Dietitian Gaps!A2:Q'), // Columns A to Q
+      getSheetData('Dietitian Gaps!A2:T'), // Columns A to T (now includes commerce columns)
       getSheetData('Key Mapping!C2:C') // Column C only, starting from row 2
     ]);
 
@@ -88,29 +93,37 @@ export async function GET(request: Request) {
       // Column mapping based on your requirements
       const dietitianName = row[1]?.trim(); // Column B
       const smName = row[8]?.trim(); // Column I
-      const consecutiveZeroDays = parseNumber(row[11]); // Column L
-      const salesTarget = parseNumber(row[9]); // Column J
-      const salesAchieved = parseNumber(row[10]); // Column K
-      const percentAchieved = parseNumber(row[15]); // Column P
-      const daysSinceJoining = parseNumber(row[3]); // ✅ NEW: Column D
+      const consecutiveZeroDays = parseNumber(row[11]); // Column L - Sales Zero Days
+      const salesTarget = parseNumber(row[9]); // Column J - Sales Target
+      const salesAchieved = parseNumber(row[10]); // Column K - Sales Achieved
+      const percentAchieved = parseNumber(row[15]); // Column P - Sales Percent
+      const daysSinceJoining = parseNumber(row[3]); // Column D - Days Since Joining
+      
+      // NEW: Commerce columns
+      const commerceTarget = parseNumber(row[17]); // Column R - Commerce Target
+      const commerceAchieved = parseNumber(row[18]); // Column S - Commerce Achieved
+      const commerceConsecutiveZeroDays = parseNumber(row[19]); // Column T - Commerce Zero Days
+      const commercePercentAchieved = commerceTarget > 0 ? (commerceAchieved / commerceTarget) * 100 : 0;
 
-      // ✅ NEW: OR Condition for Dietitians - Exclude if:
-      // 1. Name exists in Key Mapping sheet Column C OR
-      // 2. Column M is marked "YES"
+      // ✅ Exclusion conditions (OR)
       const excludeFromKeyMapping = dietitianName && excludedNames.has(dietitianName.toLowerCase());
       const excludeFlag = (row[12] || '').trim().toUpperCase(); // Column M
       const excludeFromColumnM = excludeFlag === 'YES';
       
       const shouldExcludeDietitian = excludeFromKeyMapping || excludeFromColumnM;
 
-      // ✅ NEW: Additional condition - Column D (daysSinceJoining) must be >= 30
+      // ✅ Additional condition - Column D (daysSinceJoining) must be >= 30
       const meetsDaysSinceJoiningCriteria = daysSinceJoining >= 30;
 
       // ✅ Include only if:
       // - Not excluded AND 
-      // - consecutiveZeroDays >= 3 AND
       // - daysSinceJoining >= 30
-      if (dietitianName && consecutiveZeroDays >= 3 && !shouldExcludeDietitian && meetsDaysSinceJoiningCriteria) {
+      // AND at least one of the revenue types has consecutiveZeroDays >= 3
+      const hasSalesIssue = consecutiveZeroDays >= 3;
+      const hasCommerceIssue = commerceConsecutiveZeroDays >= 3;
+      const hasAnyIssue = hasSalesIssue || hasCommerceIssue;
+
+      if (dietitianName && hasAnyIssue && !shouldExcludeDietitian && meetsDaysSinceJoiningCriteria) {
         dietitianGaps.push({
           dietitianName,
           smName: smName || 'Not Assigned',
@@ -118,15 +131,23 @@ export async function GET(request: Request) {
           salesTarget,
           salesAchieved,
           percentAchieved,
-          daysSinceJoining // ✅ NEW: Include days since joining in the data
+          daysSinceJoining,
+          // Commerce data
+          commerceTarget,
+          commerceAchieved,
+          commercePercentAchieved,
+          commerceConsecutiveZeroDays
         });
       }
     }
 
-    // Sort by consecutiveZeroDays descending, then dietitianName, then smName
+    // Sort by highest consecutive zero days (either sales or commerce) descending, then dietitianName, then smName
     dietitianGaps.sort((a, b) => {
-      if (b.consecutiveZeroDays !== a.consecutiveZeroDays) {
-        return b.consecutiveZeroDays - a.consecutiveZeroDays;
+      const aMaxZeroDays = Math.max(a.consecutiveZeroDays, a.commerceConsecutiveZeroDays || 0);
+      const bMaxZeroDays = Math.max(b.consecutiveZeroDays, b.commerceConsecutiveZeroDays || 0);
+      
+      if (bMaxZeroDays !== aMaxZeroDays) {
+        return bMaxZeroDays - aMaxZeroDays;
       }
       if (a.dietitianName !== b.dietitianName) {
         return a.dietitianName.localeCompare(b.dietitianName);

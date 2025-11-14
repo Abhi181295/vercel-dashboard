@@ -112,7 +112,12 @@ type DietitianGap = {
   salesTarget: number;
   salesAchieved: number;
   percentAchieved: number;
-  daysSinceJoining?: number; // ✅ NEW: Add days since joining
+  daysSinceJoining?: number;
+  // NEW: Commerce fields
+  commerceTarget?: number;
+  commerceAchieved?: number;
+  commercePercentAchieved?: number;
+  commerceConsecutiveZeroDays?: number;
 };
 
 // Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
@@ -224,6 +229,9 @@ export default function IssuesPage() {
   // NEW: State for excluded names from Key Mapping
   const [excludedNames, setExcludedNames] = useState<Set<string>>(new Set());
 
+  // NEW: State for revenue type toggle
+  const [activeTab, setActiveTab] = useState<'service' | 'commerce'>('service');
+
   // Modal state for funnel data
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState({
@@ -254,6 +262,11 @@ export default function IssuesPage() {
   const fmtLakhs = (n: number): string => {
     const valueInLakhs = n / 100000;
     return valueInLakhs.toFixed(1);
+  };
+
+  // NEW: Helper function to format commerce values (no lakh conversion)
+  const fmtCommerce = (n: number): string => {
+    return n.toLocaleString();
   };
 
   // Check authentication on component mount
@@ -433,18 +446,48 @@ export default function IssuesPage() {
   // Filter dietitians by selected SM for admins; for SM users, filter by their own name
   // Dietitians are already filtered in the API with OR condition (Key Mapping Column C OR Column M = "YES") AND Column D >= 30
   const filteredDietitians = useMemo(() => {
+    let dietitians = underperformingDietitians;
+    
+    // Filter by SM
     if (userRole === 'sm') {
-      return underperformingDietitians.filter(dietitian => 
+      dietitians = dietitians.filter(dietitian => 
         dietitian.smName.toLowerCase() === userName.toLowerCase()
       );
-    }
-    if (selectedSM?.name) {
-      return underperformingDietitians.filter(d => 
+    } else if (selectedSM?.name) {
+      dietitians = dietitians.filter(d => 
         d.smName.toLowerCase() === selectedSM.name.toLowerCase()
       );
     }
-    return underperformingDietitians;
-  }, [underperformingDietitians, userRole, userName, selectedSM]);
+    
+    // Filter by active tab
+    if (activeTab === 'service') {
+      return dietitians.filter(d => d.consecutiveZeroDays >= 3);
+    } else {
+      return dietitians.filter(d => (d.commerceConsecutiveZeroDays || 0) >= 3);
+    }
+  }, [underperformingDietitians, userRole, userName, selectedSM, activeTab]);
+
+  // Calculate total count for the card (both sales + commerce)
+  const totalDietitianCount = useMemo(() => {
+    let dietitians = underperformingDietitians;
+    
+    // Filter by SM
+    if (userRole === 'sm') {
+      dietitians = dietitians.filter(dietitian => 
+        dietitian.smName.toLowerCase() === userName.toLowerCase()
+      );
+    } else if (selectedSM?.name) {
+      dietitians = dietitians.filter(d => 
+        d.smName.toLowerCase() === selectedSM.name.toLowerCase()
+      );
+    }
+    
+    // SIMPLE ADDITION: Count sales issues + commerce issues (NOT unique dietitians)
+    const salesCount = dietitians.filter(d => d.consecutiveZeroDays >= 3).length;
+    const commerceCount = dietitians.filter(d => (d.commerceConsecutiveZeroDays || 0) >= 3).length;
+    
+    return activeTab === 'service' ? salesCount : commerceCount;
+  }, [underperformingDietitians, userRole, userName, selectedSM, activeTab]);
 
   const handleLogout = () => {
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -479,7 +522,7 @@ export default function IssuesPage() {
       userName,
       userRole,
       period,
-      revType: 'service'
+      revType: activeTab
     });
     setModalOpen(true);
   };
@@ -680,45 +723,57 @@ export default function IssuesPage() {
         )}
 
         <div className="rev-toggle">
-          <button className="rev-pill active">
+          <button 
+            className={`rev-pill ${activeTab === 'service' ? 'active' : ''}`}
+            onClick={() => setActiveTab('service')}
+          >
             Service Revenue
           </button>
-          <button className="rev-pill" disabled>
+          <button 
+            className={`rev-pill ${activeTab === 'commerce' ? 'active' : ''}`}
+            onClick={() => setActiveTab('commerce')}
+          >
             Commerce Revenue
           </button>
         </div>
 
         {/* Issues Cards */}
         <div className="issues-grid">
-          {/* Issue Card 1: Underperforming (M + AM) */}
-          <div className="issue-card">
-            <div className="issue-header">
-              <h3 className="issue-title">Underperforming M and AMs</h3>
-              <div className="issue-count">{amCount + mCount}</div>
+          {/* Issue Card 1: Underperforming (M + AM) - Only show for Service Revenue */}
+          {activeTab === 'service' && (
+            <div className="issue-card">
+              <div className="issue-header">
+                <h3 className="issue-title">Underperforming M and AMs</h3>
+                <div className="issue-count">{amCount + mCount}</div>
+              </div>
+              <p className="issue-description">
+                AMs & Ms performing at or below 25% of their daily target
+                <br />
+              </p>
+              <button 
+                className="view-details-btn"
+                onClick={() => handleViewDetails('underperforming')}
+                disabled={(amCount + mCount) === 0}
+              >
+                View Details →
+              </button>
             </div>
-            <p className="issue-description">
-              AMs & Ms performing at or below 25% of their daily target
-              <br />
-            </p>
-            <button 
-              className="view-details-btn"
-              onClick={() => handleViewDetails('underperforming')}
-              disabled={(amCount + mCount) === 0}
-            >
-              View Details →
-            </button>
-          </div>
+          )}
 
           {/* Issue Card 2: Underperforming Dietitians */}
-          <div className="issue-card">
+          <div className={`issue-card ${activeTab === 'commerce' ? 'half-width' : ''}`}>
             <div className="issue-header">
               <h3 className="issue-title">Underperforming Dietitians</h3>
-              <div className="issue-count">{filteredDietitians.length}</div>
+              <div className="issue-count">{totalDietitianCount}</div>
             </div>
+            
             <p className="issue-description">
-              Dietitians with zero sales for 3+ consecutive days & 30+ ACC
+              {activeTab === 'service' 
+                ? 'Dietitians with zero sales for 3+ consecutive days & 30+ ACC'
+                : 'Dietitians with zero commerce for 3+ consecutive days & 30+ ACC'
+              }
               <br />
-              
+              <small>Showing: {filteredDietitians.length} dietitians</small>
             </p>
             <button 
               className="view-details-btn"
@@ -730,7 +785,7 @@ export default function IssuesPage() {
           </div>
         </div>
 
-        {/* Issue Details Panel */}
+        {/* Issue Details Panel - Pass activeTab */}
         {isPanelOpen && (
           <IssueDetailsPanel
             isOpen={isPanelOpen}
@@ -740,6 +795,7 @@ export default function IssuesPage() {
             ms={underperformingMs}
             dietitians={filteredDietitians}
             onMetricClick={handleMetricClick}
+            revenueType={activeTab === 'service' ? 'sales' : 'commerce'}
           />
         )}
 
@@ -754,7 +810,7 @@ export default function IssuesPage() {
         />
       </section>
 
-      {/* CSS remains exactly the same */}
+      {/* Updated CSS with half-width class */}
       <style jsx global>{`
         .issues-grid {
           display: grid;
@@ -769,6 +825,11 @@ export default function IssuesPage() {
           border-radius: 12px;
           padding: 20px;
           transition: all 0.2s ease;
+        }
+
+        .issue-card.half-width {
+          grid-column: span 1;
+          max-width: 50%;
         }
 
         .issue-card:hover {
@@ -981,7 +1042,7 @@ export default function IssuesPage() {
   );
 }
 
-// Issue Details Panel Component - Updated to show Days Since Joining
+// Issue Details Panel Component - Updated to show Days Since Joining and Commerce Revenue
 function IssueDetailsPanel({ 
   isOpen, 
   onClose, 
@@ -989,7 +1050,8 @@ function IssueDetailsPanel({
   ams, 
   ms,
   dietitians,
-  onMetricClick 
+  onMetricClick,
+  revenueType // NEW: Add revenue type prop
 }: { 
   isOpen: boolean;
   onClose: () => void;
@@ -998,6 +1060,7 @@ function IssueDetailsPanel({
   ms: IssueM[];
   dietitians: DietitianGap[];
   onMetricClick: (name: string, role: string, period: 'y' | 'w' | 'm') => void;
+  revenueType: 'sales' | 'commerce'; // NEW: Add revenue type
 }) {
   if (!isOpen) return null;
 
@@ -1010,6 +1073,11 @@ function IssueDetailsPanel({
   const fmtLakhs = (n: number): string => {
     const valueInLakhs = n / 100000;
     return valueInLakhs.toFixed(1);
+  };
+
+  // NEW: Helper function to format commerce values (no lakh conversion)
+  const fmtCommerce = (n: number): string => {
+    return n.toLocaleString();
   };
 
   return (
@@ -1243,8 +1311,13 @@ function IssueDetailsPanel({
           {issueType === 'dietitians' && (
             <>
               <div className="issue-info">
-                <h3>Underperforming Dietitians</h3>
-                <p>Dietitians with zero sales for 3+ consecutive days & 30+ ACC</p>
+                <h3>Underperforming Dietitians - {revenueType === 'sales' ? 'Sales Revenue' : 'Commerce Revenue'}</h3>
+                <p>
+                  {revenueType === 'sales' 
+                    ? 'Dietitians with zero sales for 3+ consecutive days & 30+ ACC'
+                    : 'Dietitians with zero commerce for 3+ consecutive days & 30+ ACC'
+                  }
+                </p>
                 <div className="issue-count-badge">{dietitians.length} Dietitians found</div>
               </div>
 
@@ -1265,7 +1338,7 @@ function IssueDetailsPanel({
                         <div className="g-title">ACC</div>
                       </div>
                       <div className="h-group merged">
-                        <div className="g-title">Sales</div>
+                        <div className="g-title">{revenueType === 'sales' ? 'Sales' : 'Commerce'}</div>
                         <div className="g-sub">
                           <span>Target</span><span>Achieved</span><span>%</span>
                         </div>
@@ -1273,61 +1346,69 @@ function IssueDetailsPanel({
                     </div>
 
                     <div className="tbody">
-                      {dietitians.map((dietitian, index) => (
-                        <div key={`${dietitian.dietitianName}-${index}`} className="row">
-                          <div className="c-name">
-                            <span className="nm">{dietitian.dietitianName}</span>
-                          </div>
-                          <div className="c-role">{dietitian.smName}</div>
-                          
-                          {/* Zero Days */}
-                          <div className="grp">
-                            <div className="zero-days">
-                              <div className="n days">{dietitian.consecutiveZeroDays}</div>
+                      {dietitians.map((dietitian, index) => {
+                        // Use sales or commerce data based on revenueType
+                        const target = revenueType === 'sales' ? dietitian.salesTarget : (dietitian.commerceTarget || 0);
+                        const achieved = revenueType === 'sales' ? dietitian.salesAchieved : (dietitian.commerceAchieved || 0);
+                        const percent = revenueType === 'sales' ? dietitian.percentAchieved : (dietitian.commercePercentAchieved || 0);
+                        const zeroDays = revenueType === 'sales' ? dietitian.consecutiveZeroDays : (dietitian.commerceConsecutiveZeroDays || 0);
+                        
+                        return (
+                          <div key={`${dietitian.dietitianName}-${index}`} className="row">
+                            <div className="c-name">
+                              <span className="nm">{dietitian.dietitianName}</span>
                             </div>
-                          </div>
+                            <div className="c-role">{dietitian.smName}</div>
+                            
+                            {/* Zero Days */}
+                            <div className="grp">
+                              <div className="zero-days">
+                                <div className="n days">{zeroDays}</div>
+                              </div>
+                            </div>
 
-                          {/* Days Since Joining (label shown as ACC as per your existing UI) */}
-                          <div className="grp">
-                            <div className="days-since-joining">
-                              <div className="n days-joined">{dietitian.daysSinceJoining || 0}</div>
-                            </div>
-                          </div>
-                          
-                          {/* Sales Metrics - NOW CLICKABLE to open modal for Dietitian (MTD) */}
-                          <div className="grp">
-                            <div className="nums">
-                              <div
-                                className="n target clickable"
-                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
-                                title="View Funnel (MTD)"
-                              >
-                                {fmtLakhs(dietitian.salesTarget)}
-                              </div>
-                              <div
-                                className="n achieved clickable"
-                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
-                                title="View Funnel (MTD)"
-                              >
-                                {fmtLakhs(dietitian.salesAchieved)}
-                              </div>
-                              <div
-                                className={`n pct ${getPercentageColor(dietitian.percentAchieved)} clickable`}
-                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
-                                title="View Performance (MTD)"
-                              >
-                                {dietitian.percentAchieved}%
+                            {/* Days Since Joining (ACC) */}
+                            <div className="grp">
+                              <div className="days-since-joining">
+                                <div className="n days-joined">{dietitian.daysSinceJoining || 0}</div>
                               </div>
                             </div>
+                            
+                            {/* Revenue Metrics */}
+                            <div className="grp">
+                              <div className="nums">
+                                <div
+                                  className="n target clickable"
+                                  onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                  title={`View ${revenueType} Funnel (MTD)`}
+                                >
+                                  {revenueType === 'sales' ? fmtLakhs(target) : fmtCommerce(target)}
+                                </div>
+                                <div
+                                  className="n achieved clickable"
+                                  onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                  title={`View ${revenueType} Funnel (MTD)`}
+                                >
+                                  {revenueType === 'sales' ? fmtLakhs(achieved) : fmtCommerce(achieved)}
+                                </div>
+                                <div
+                                  className={`n pct ${getPercentageColor(percent)} clickable`}
+                                  onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                  title={`View ${revenueType} Performance (MTD)`}
+                                >
+                                  {Math.round(percent)}%
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="no-issues">
-                  <p>No underperforming dietitians found</p>
+                  <p>No underperforming dietitians found for {revenueType} revenue</p>
                 </div>
               )}
             </>
