@@ -120,6 +120,20 @@ type DietitianGap = {
   commerceConsecutiveZeroDays?: number;
 };
 
+// NEW: Dietitian Quality Record type
+type DietitianQualityRecord = {
+  customerCode: string;
+  dietitianName: string;
+  subscriptionStartDate: string;
+  emName: string;
+  flapName: string;
+  amName: string;
+  managerName: string;
+  smName: string;
+  csatScore: number;
+  npsScore: number;
+};
+
 // Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
 interface FunnelData {
   teamSize: number;
@@ -231,6 +245,29 @@ export default function IssuesPage() {
 
   // NEW: State for revenue type toggle
   const [activeTab, setActiveTab] = useState<'service' | 'commerce'>('service');
+
+  // NEW: State for Dietitian Quality sections
+  const [qualityFilters, setQualityFilters] = useState({
+    manager: '',
+    am: '',
+    flap: '',
+    em: ''
+  });
+  const [npsData, setNpsData] = useState<DietitianQualityRecord[]>([]);
+  const [csatData, setCsatData] = useState<DietitianQualityRecord[]>([]);
+  const [loadingNps, setLoadingNps] = useState(false);
+  const [loadingCsat, setLoadingCsat] = useState(false);
+  const [filterOptions, setFilterOptions] = useState({
+    managers: [] as string[],
+    ams: [] as string[],
+    flaps: [] as string[],
+    ems: [] as string[]
+  });
+
+  // NEW: State for quality details panel
+  const [isQualityPanelOpen, setIsQualityPanelOpen] = useState(false);
+  const [selectedQualityType, setSelectedQualityType] = useState<'nps' | 'csat' | ''>('');
+  const [activeQualityType, setActiveQualityType] = useState<'low' | 'medium' | ''>('');
 
   // Modal state for funnel data
   const [modalOpen, setModalOpen] = useState(false);
@@ -361,6 +398,153 @@ export default function IssuesPage() {
     loadData();
   }, [isAuthenticated, userRole, userName]);
 
+  // NEW: Fetch filter options when SM changes
+  useEffect(() => {
+    if (selectedSM || userRole === 'sm') {
+      fetchFilterOptions();
+    }
+  }, [selectedSM, userRole, userName]);
+
+  const fetchFilterOptions = async () => {
+    try {
+      const smName = userRole === 'sm' ? userName : selectedSM?.name;
+      if (!smName) return;
+
+      const queryParams = new URLSearchParams({ smName });
+      const response = await fetch(`/api/quality-records?${queryParams}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFilterOptions(data.filterOptions);
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
+  // NEW: Handle quality view for NPS/CSAT in panel
+  const handleQualityView = async (metric: 'nps' | 'csat', type: 'low' | 'medium') => {
+    const smName = userRole === 'sm' ? userName : selectedSM?.name;
+    if (!smName) return;
+
+    const queryParams = new URLSearchParams({
+      smName,
+      type,
+      ...(qualityFilters.manager && { managerName: qualityFilters.manager }),
+      ...(qualityFilters.am && { amName: qualityFilters.am }),
+      ...(qualityFilters.flap && { flapName: qualityFilters.flap }),
+      ...(qualityFilters.em && { emName: qualityFilters.em })
+    });
+
+    if (metric === 'nps') {
+      setLoadingNps(true);
+      setActiveQualityType(type);
+      try {
+        const response = await fetch(`/api/nps-issues?${queryParams}`);
+        if (response.ok) {
+          const data = await response.json();
+          setNpsData(data.records);
+        }
+      } catch (error) {
+        console.error('Error fetching NPS data:', error);
+      } finally {
+        setLoadingNps(false);
+      }
+    } else {
+      setLoadingCsat(true);
+      setActiveQualityType(type);
+      try {
+        const response = await fetch(`/api/csat-issues?${queryParams}`);
+        if (response.ok) {
+          const data = await response.json();
+          setCsatData(data.records);
+        }
+      } catch (error) {
+        console.error('Error fetching CSAT data:', error);
+      } finally {
+        setLoadingCsat(false);
+      }
+    }
+  };
+
+  // NEW: Handle filter changes
+  const handleFilterChange = (filterType: string, value: string) => {
+    setQualityFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+    
+    // Reset dependent filters
+    if (filterType === 'manager') {
+      setQualityFilters(prev => ({
+        ...prev,
+        am: '',
+        flap: '',
+        em: ''
+      }));
+    } else if (filterType === 'am') {
+      setQualityFilters(prev => ({
+        ...prev,
+        flap: '',
+        em: ''
+      }));
+    } else if (filterType === 'flap') {
+      setQualityFilters(prev => ({
+        ...prev,
+        em: ''
+      }));
+    }
+
+    // Reset active views when filters change
+    setActiveQualityType('');
+    setNpsData([]);
+    setCsatData([]);
+  };
+
+  // NEW: Handle quality details view
+  const handleQualityDetails = async (qualityType: 'nps' | 'csat') => {
+    setSelectedQualityType(qualityType);
+    setIsQualityPanelOpen(true);
+    
+    // Load initial data when panel opens
+    const smName = userRole === 'sm' ? userName : selectedSM?.name;
+    if (!smName) return;
+
+    // Reset filters and load all data for the selected SM
+    setQualityFilters({ manager: '', am: '', flap: '', em: '' });
+    setActiveQualityType('');
+    
+    const queryParams = new URLSearchParams({ smName });
+    
+    if (qualityType === 'nps') {
+      setLoadingNps(true);
+      try {
+        const response = await fetch(`/api/nps-issues?${queryParams}`);
+        if (response.ok) {
+          const data = await response.json();
+          setNpsData(data.records || []);
+        }
+      } catch (error) {
+        console.error('Error fetching NPS data:', error);
+      } finally {
+        setLoadingNps(false);
+      }
+    } else {
+      setLoadingCsat(true);
+      try {
+        const response = await fetch(`/api/csat-issues?${queryParams}`);
+        if (response.ok) {
+          const data = await response.json();
+          setCsatData(data.records || []);
+        }
+      } catch (error) {
+        console.error('Error fetching CSAT data:', error);
+      } finally {
+        setLoadingCsat(false);
+      }
+    }
+  };
+
   // Calculate underperforming AMs (≤ 25% of daily target) with exclusion - ONLY Key Mapping Column C
   const calculateUnderperformingAMs = useMemo(() => {
     if (!selectedSM) return [];
@@ -489,6 +673,23 @@ export default function IssuesPage() {
     return activeTab === 'service' ? salesCount : commerceCount;
   }, [underperformingDietitians, userRole, userName, selectedSM, activeTab]);
 
+  // NEW: Calculate NPS and CSAT counts for display in cards
+  const npsLowCount = useMemo(() => {
+    return npsData.filter(record => record.npsScore <= 6).length;
+  }, [npsData]);
+
+  const npsMediumCount = useMemo(() => {
+    return npsData.filter(record => record.npsScore > 6 && record.npsScore <= 8).length;
+  }, [npsData]);
+
+  const csatLowCount = useMemo(() => {
+    return csatData.filter(record => record.csatScore <= 3).length;
+  }, [csatData]);
+
+  const csatMediumCount = useMemo(() => {
+    return csatData.filter(record => record.csatScore > 3 && record.csatScore <= 4).length;
+  }, [csatData]);
+
   const handleLogout = () => {
     document.cookie = 'isAuthenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'userEmail=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -506,6 +707,11 @@ export default function IssuesPage() {
   const handleSMChange = (smId: string) => {
     const sm = data.find(s => s.id === smId) || null;
     setSelectedSM(sm);
+    // Reset quality filters when SM changes
+    setQualityFilters({ manager: '', am: '', flap: '', em: '' });
+    setActiveQualityType('');
+    setNpsData([]);
+    setCsatData([]);
   };
 
   const handleViewDetails = (issueType: string) => {
@@ -783,6 +989,46 @@ export default function IssuesPage() {
               View Details →
             </button>
           </div>
+
+          {/* NEW: NPS Issues Card */}
+          <div className="issue-card">
+            <div className="issue-header">
+              <h3 className="issue-title">NPS Issues</h3>
+              <div className="issue-count">{npsLowCount + npsMediumCount}</div>
+            </div>
+            <p className="issue-description">
+              Dietitians with low and medium NPS scores
+              <br />
+              <small>Low NPS: {npsLowCount} | Medium NPS: {npsMediumCount}</small>
+            </p>
+            
+            <button 
+              className="view-details-btn"
+              onClick={() => handleQualityDetails('nps')}
+            >
+              View Details →
+            </button>
+          </div>
+
+          {/* NEW: CSAT Issues Card */}
+          <div className="issue-card">
+            <div className="issue-header">
+              <h3 className="issue-title">CSAT Issues</h3>
+              <div className="issue-count">{csatLowCount + csatMediumCount}</div>
+            </div>
+            <p className="issue-description">
+              Dietitians with low and medium CSAT scores
+              <br />
+              <small>Low CSAT: {csatLowCount} | Medium CSAT: {csatMediumCount}</small>
+            </p>
+            
+            <button 
+              className="view-details-btn"
+              onClick={() => handleQualityDetails('csat')}
+            >
+              View Details →
+            </button>
+          </div>
         </div>
 
         {/* Issue Details Panel - Pass activeTab */}
@@ -799,6 +1045,28 @@ export default function IssuesPage() {
           />
         )}
 
+        {/* NEW: Quality Details Panel */}
+        {isQualityPanelOpen && (
+          <QualityDetailsPanel
+            isOpen={isQualityPanelOpen}
+            onClose={() => {
+              setIsQualityPanelOpen(false);
+              setSelectedQualityType('');
+              setActiveQualityType('');
+            }}
+            qualityType={selectedQualityType}
+            filters={qualityFilters}
+            filterOptions={filterOptions}
+            onFilterChange={handleFilterChange}
+            onQualityView={handleQualityView}
+            npsData={npsData}
+            csatData={csatData}
+            loadingNps={loadingNps}
+            loadingCsat={loadingCsat}
+            activeQualityType={activeQualityType}
+          />
+        )}
+
         {/* Funnel Metrics Modal */}
         <MetricsModal
           isOpen={modalOpen}
@@ -810,7 +1078,7 @@ export default function IssuesPage() {
         />
       </section>
 
-      {/* Updated CSS with half-width class */}
+      {/* Updated CSS with new quality sections */}
       <style jsx global>{`
         .issues-grid {
           display: grid;
@@ -898,6 +1166,19 @@ export default function IssuesPage() {
           opacity: 0.6;
         }
 
+        .no-data {
+          text-align: center;
+          padding: 40px 20px;
+          color: #64748b;
+          font-style: italic;
+        }
+
+        .loading {
+          text-align: center;
+          padding: 20px;
+          color: #64748b;
+        }
+
         .loading-full {
           display: flex;
           justify-content: center;
@@ -925,6 +1206,85 @@ export default function IssuesPage() {
           margin: 0;
           color: var(--muted);
           font-size: 14px;
+        }
+
+        /* Quality Table Styles - FIXED */
+        .quality-table-container {
+          margin-top: 16px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          overflow: auto;
+          background: white;
+        }
+
+        .quality-table {
+          width: 100%;
+          border-collapse: collapse;
+          min-width: 800px;
+        }
+
+        .quality-table thead {
+          background: #f8fafc;
+          border-bottom: 2px solid var(--line);
+        }
+
+        .quality-table th {
+          padding: 12px 16px;
+          text-align: left;
+          font-weight: 600;
+          font-size: 13px;
+          color: #374151;
+          border-right: 1px solid var(--line);
+          white-space: nowrap;
+        }
+
+        .quality-table th:last-child {
+          border-right: none;
+        }
+
+        .quality-table tbody tr {
+          border-bottom: 1px solid var(--line);
+          transition: background-color 0.2s;
+        }
+
+        .quality-table tbody tr:hover {
+          background: #fafbfd;
+        }
+
+        .quality-table tbody tr:last-child {
+          border-bottom: none;
+        }
+
+        .quality-table td {
+          padding: 12px 16px;
+          font-size: 14px;
+          color: var(--text);
+          border-right: 1px solid var(--line);
+          white-space: nowrap;
+        }
+
+        .quality-table td:last-child {
+          border-right: none;
+        }
+
+        .score-cell {
+          font-weight: 600;
+          text-align: center;
+          padding: 6px 12px;
+          border-radius: 6px;
+          min-width: 60px;
+        }
+
+        .score-cell.low {
+          background: #fef2f2;
+          color: #dc2626;
+          border: 1px solid #fecaca;
+        }
+
+        .score-cell.medium {
+          background: #fffbeb;
+          color: #d97706;
+          border: 1px solid #fed7aa;
         }
       `}</style>
       <style jsx global>{`
@@ -1036,6 +1396,336 @@ export default function IssuesPage() {
           margin: 0 0 16px 0;
           max-width: 400px;
           line-height: 1.5;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// NEW: Quality Table Component - FIXED
+function QualityTable({ records, type }: {
+  records: DietitianQualityRecord[];
+  type: 'nps' | 'csat';
+}) {
+  return (
+    <div className="quality-table-container">
+      <table className="quality-table">
+        <thead>
+          <tr>
+            <th>Customer Code</th>
+            <th>Dietitian Name</th>
+            <th>Subscription Start</th>
+            <th>AM Name</th>
+            <th>FLAP Name</th>
+            <th>Manager Name</th>
+            <th>SM Name</th>
+            <th>{type === 'nps' ? 'NPS Score' : 'CSAT Score'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((record, index) => (
+            <tr key={`${record.customerCode}-${index}`}>
+              <td>{record.customerCode}</td>
+              <td>{record.dietitianName}</td>
+              <td>{record.subscriptionStartDate}</td>
+              <td>{record.amName}</td>
+              <td>{record.flapName}</td>
+              <td>{record.managerName}</td>
+              <td>{record.smName}</td>
+              <td className={`score-cell ${type === 'nps' ? 
+                (record.npsScore <= 6 ? 'low' : record.npsScore <= 8 ? 'medium' : '') : 
+                (record.csatScore <= 3 ? 'low' : record.csatScore <= 4 ? 'medium' : '')
+              }`}>
+                {type === 'nps' ? record.npsScore : record.csatScore}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// NEW: Quality Details Panel Component
+function QualityDetailsPanel({ 
+  isOpen, 
+  onClose, 
+  qualityType,
+  filters,
+  filterOptions,
+  onFilterChange,
+  onQualityView,
+  npsData,
+  csatData,
+  loadingNps,
+  loadingCsat,
+  activeQualityType
+}: { 
+  isOpen: boolean;
+  onClose: () => void;
+  qualityType: 'nps' | 'csat';
+  filters: any;
+  filterOptions: any;
+  onFilterChange: (filterType: string, value: string) => void;
+  onQualityView: (metric: 'nps' | 'csat', type: 'low' | 'medium') => void;
+  npsData: DietitianQualityRecord[];
+  csatData: DietitianQualityRecord[];
+  loadingNps: boolean;
+  loadingCsat: boolean;
+  activeQualityType: string;
+}) {
+  if (!isOpen) return null;
+
+  const currentData = qualityType === 'nps' ? npsData : csatData;
+  const currentLoading = qualityType === 'nps' ? loadingNps : loadingCsat;
+
+  return (
+    <div className="panel-overlay" onClick={onClose}>
+      <div className="panel-content" onClick={(e) => e.stopPropagation()}>
+        <div className="panel-header">
+          <h2>{qualityType.toUpperCase()} Issues Details</h2>
+          <button className="panel-close" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="panel-body">
+          <div className="quality-panel-filters">
+            <h3>Filters</h3>
+            <div className="filters-grid">
+              <div className="filter-group">
+                <label className="filter-label">Manager:</label>
+                <select 
+                  className="filter-select"
+                  value={filters.manager}
+                  onChange={(e) => onFilterChange('manager', e.target.value)}
+                >
+                  <option value="">All Managers</option>
+                  {filterOptions.managers.map((manager: string) => (
+                    <option key={manager} value={manager}>{manager}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">AM:</label>
+                <select 
+                  className="filter-select"
+                  value={filters.am}
+                  onChange={(e) => onFilterChange('am', e.target.value)}
+                >
+                  <option value="">All AMs</option>
+                  {filterOptions.ams.map((am: string) => (
+                    <option key={am} value={am}>{am}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">FLAP:</label>
+                <select 
+                  className="filter-select"
+                  value={filters.flap}
+                  onChange={(e) => onFilterChange('flap', e.target.value)}
+                >
+                  <option value="">All FLAPs</option>
+                  {filterOptions.flaps.map((flap: string) => (
+                    <option key={flap} value={flap}>{flap}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">EM:</label>
+                <select 
+                  className="filter-select"
+                  value={filters.em}
+                  onChange={(e) => onFilterChange('em', e.target.value)}
+                >
+                  <option value="">All EMs</option>
+                  {filterOptions.ems.map((em: string) => (
+                    <option key={em} value={em}>{em}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="quality-panel-actions">
+            <div className="quality-buttons">
+              <button 
+                className={`quality-btn ${activeQualityType === 'low' ? 'active' : ''}`}
+                onClick={() => onQualityView(qualityType, 'low')}
+              >
+                LOW {qualityType.toUpperCase()}
+              </button>
+              <button 
+                className={`quality-btn ${activeQualityType === 'medium' ? 'active' : ''}`}
+                onClick={() => onQualityView(qualityType, 'medium')}
+              >
+                MEDIUM {qualityType.toUpperCase()}
+              </button>
+            </div>
+          </div>
+
+          <div className="quality-panel-results">
+            {currentLoading ? (
+              <div className="loading">Loading {qualityType.toUpperCase()} data...</div>
+            ) : currentData.length > 0 ? (
+              <QualityTable 
+                records={currentData} 
+                type={qualityType}
+              />
+            ) : (
+              <div className="no-data">
+                {activeQualityType 
+                  ? `No ${activeQualityType.toUpperCase()} ${qualityType.toUpperCase()} records found`
+                  : 'Select a filter option or click LOW/MEDIUM to view data'
+                }
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .panel-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: flex-end;
+          z-index: 1000;
+        }
+
+        .panel-content {
+          background: white;
+          width: 85%;
+          max-width: 1200px;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px 24px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .panel-header h2 {
+          margin: 0;
+          color: #111827;
+          font-size: 20px;
+        }
+
+        .panel-close {
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #6b7280;
+          padding: 4px;
+          border-radius: 4px;
+        }
+
+        .panel-close:hover {
+          background: #f3f4f6;
+          color: #111827;
+        }
+
+        .panel-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 24px;
+        }
+
+        .quality-panel-filters {
+          margin-bottom: 24px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .quality-panel-filters h3 {
+          margin: 0 0 16px 0;
+          color: #111827;
+          font-size: 18px;
+        }
+
+        .filters-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+        }
+
+        .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .filter-label {
+          font-size: 14px;
+          font-weight: 600;
+          color: #374151;
+        }
+
+        .filter-select {
+          background: #fff;
+          border: 1px solid var(--line);
+          border-radius: 6px;
+          padding: 8px 12px;
+          font-size: 14px;
+          width: 100%;
+        }
+
+        .quality-panel-actions {
+          margin-bottom: 24px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .quality-buttons {
+          display: flex;
+          gap: 12px;
+        }
+
+        .quality-btn {
+          background: #fff;
+          border: 1px solid var(--line);
+          color: var(--text);
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s;
+          flex: 1;
+        }
+
+        .quality-btn.active {
+          background: #0f172a;
+          color: #fff;
+          border-color: #0f172a;
+        }
+
+        .quality-btn:hover:not(.active) {
+          background: #f8fafc;
+        }
+
+        .quality-panel-results {
+          flex: 1;
+        }
+
+        .loading, .no-data {
+          text-align: center;
+          padding: 40px 20px;
+          color: #64748b;
+          font-style: italic;
         }
       `}</style>
     </div>
