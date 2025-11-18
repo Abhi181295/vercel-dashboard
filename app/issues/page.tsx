@@ -1046,26 +1046,28 @@ export default function IssuesPage() {
         )}
 
         {/* NEW: Quality Details Panel */}
-        {isQualityPanelOpen && (
-          <QualityDetailsPanel
-            isOpen={isQualityPanelOpen}
-            onClose={() => {
-              setIsQualityPanelOpen(false);
-              setSelectedQualityType('');
-              setActiveQualityType('');
-            }}
-            qualityType={selectedQualityType}
-            filters={qualityFilters}
-            filterOptions={filterOptions}
-            onFilterChange={handleFilterChange}
-            onQualityView={handleQualityView}
-            npsData={npsData}
-            csatData={csatData}
-            loadingNps={loadingNps}
-            loadingCsat={loadingCsat}
-            activeQualityType={activeQualityType}
-          />
-        )}
+        
+
+{isQualityPanelOpen && (
+  <QualityDetailsPanel
+    isOpen={isQualityPanelOpen}
+    onClose={() => {
+      setIsQualityPanelOpen(false);
+      setSelectedQualityType('');
+      setActiveQualityType('');
+    }}
+    qualityType={selectedQualityType as 'nps' | 'csat'} // Add type assertion here
+    filters={qualityFilters}
+    filterOptions={filterOptions}
+    onFilterChange={handleFilterChange}
+    onQualityView={handleQualityView}
+    npsData={npsData}
+    csatData={csatData}
+    loadingNps={loadingNps}
+    loadingCsat={loadingCsat}
+    activeQualityType={activeQualityType}
+  />
+)}
 
         {/* Funnel Metrics Modal */}
         <MetricsModal
