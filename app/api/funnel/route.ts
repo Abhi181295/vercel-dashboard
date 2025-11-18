@@ -93,6 +93,11 @@ export interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
     wtd: {
       calls: number;
@@ -107,6 +112,11 @@ export interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
     mtd: {
       calls: number;
@@ -121,6 +131,11 @@ export interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
   };
   metrics: {
@@ -176,7 +191,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const funnelData = await getSheetData('Dietitian Funnel!A2:AT');
+    const funnelData = await getSheetData('Dietitian Funnel!A2:BG');
     const { daysWTD, daysMTD } = calculateDays();
 
     const roleColumns = {
@@ -203,17 +218,20 @@ export async function GET(request: Request) {
       ytd: { 
         calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
         counsellingConnected: 0, followupConnected: 0,
-        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 
+        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0,
+        referralLeads: 0, reactiveLeads: 0, renewalLeads: 0, extensionLeads: 0
       },
       wtd: { 
         calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
         counsellingConnected: 0, followupConnected: 0,
-        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 
+        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0,
+        referralLeads: 0, reactiveLeads: 0, renewalLeads: 0, extensionLeads: 0
       },
       mtd: { 
         calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
         counsellingConnected: 0, followupConnected: 0,
-        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0 
+        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0,
+        referralLeads: 0, reactiveLeads: 0, renewalLeads: 0, extensionLeads: 0
       }
     };
 
@@ -322,6 +340,25 @@ export async function GET(request: Request) {
             tallies.ytd.followupConnected += parseNumber(row[43]); // AR -> YTD
             tallies.wtd.followupConnected += parseNumber(row[44]); // AS -> WTD
             tallies.mtd.followupConnected += parseNumber(row[45]); // AT -> MTD
+
+            // New Leads Breakdown columns
+            // YTD Leads Breakdown (AU-AX)
+            tallies.ytd.referralLeads += parseNumber(row[46]); // AU
+            tallies.ytd.reactiveLeads += parseNumber(row[47]); // AV
+            tallies.ytd.renewalLeads += parseNumber(row[48]); // AW
+            tallies.ytd.extensionLeads += parseNumber(row[49]); // AX
+
+            // WTD Leads Breakdown (AY-BB)
+            tallies.wtd.referralLeads += parseNumber(row[50]); // AY
+            tallies.wtd.reactiveLeads += parseNumber(row[51]); // AZ
+            tallies.wtd.renewalLeads += parseNumber(row[52]); // BA
+            tallies.wtd.extensionLeads += parseNumber(row[53]); // BB
+
+            // MTD Leads Breakdown (BC-BF)
+            tallies.mtd.referralLeads += parseNumber(row[54]); // BC
+            tallies.mtd.reactiveLeads += parseNumber(row[55]); // BD
+            tallies.mtd.renewalLeads += parseNumber(row[56]); // BE
+            tallies.mtd.extensionLeads += parseNumber(row[57]); // BF
           }
         }
       }

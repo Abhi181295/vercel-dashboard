@@ -135,6 +135,8 @@ type DietitianQualityRecord = {
 };
 
 // Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
+// Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
+// Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
 interface FunnelData {
   teamSize: number;
   rawTallies: {
@@ -144,13 +146,18 @@ interface FunnelData {
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
-      counsellingConnected: number; // ADD THIS
-      followupConnected: number;    // ADD THIS
+      counsellingConnected: number;
+      followupConnected: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
     wtd: {
       calls: number;
@@ -158,13 +165,18 @@ interface FunnelData {
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
-      counsellingConnected: number; // ADD THIS
-      followupConnected: number;    // ADD THIS
+      counsellingConnected: number;
+      followupConnected: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
     mtd: {
       calls: number;
@@ -172,13 +184,18 @@ interface FunnelData {
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
-      counsellingConnected: number; // ADD THIS
-      followupConnected: number;    // ADD THIS
+      counsellingConnected: number;
+      followupConnected: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
   };
   metrics: {
@@ -2529,6 +2546,8 @@ function IssueDetailsPanel({
 }
 
 // Metrics Modal Component - UPDATED WITH NEW METRICS
+// Metrics Modal Component - UPDATED WITH LEADS BREAKDOWN (SAME STYLING AS DASHBOARD)
+// Metrics Modal Component - UPDATED WITH LEADS BREAKDOWN (EXACT SAME STYLING AS DASHBOARD REVENUE TAB)
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;
   onClose: () => void;
@@ -2541,6 +2560,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
   const [funnelData, setFunnelData] = useState<FunnelData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredLeads, setHoveredLeads] = useState<{x: number, y: number} | null>(null);
 
   // Update active period when the period prop changes
   useEffect(() => {
@@ -2572,17 +2592,29 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
     }
   };
 
+  const handleLeadsHover = (event: React.MouseEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setHoveredLeads({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    });
+  };
+
+  const handleLeadsLeave = () => {
+    setHoveredLeads(null);
+  };
+
   if (!isOpen) return null;
 
   const periodLabels = {
     y: 'Yesterday',
-    w: 'WTD (Week to Date)',
+    w: 'WTD (Week to Date)', 
     m: 'MTD (Month to Date)'
   };
 
   const periodMap = {
     y: 'ytd',
-    w: 'wtd', 
+    w: 'wtd',
     m: 'mtd'
   } as const;
 
@@ -2599,6 +2631,14 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
     if (num === 0) return '-';
     return `${(num * 100).toFixed(1)}%`;
   };
+
+  const leadsBreakdown = rawData ? {
+    totalLeads: rawData.leads,
+    referralLeads: rawData.referralLeads,
+    reactiveLeads: rawData.reactiveLeads,
+    renewalLeads: rawData.renewalLeads,
+    extensionLeads: rawData.extensionLeads
+  } : null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -2665,7 +2705,31 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                       <th>Talktime (hrs)</th>
                       <th>Talktime - Counselling (hrs)</th>
                       <th>Talktime - Follow up (hrs)</th>
-                      <th>Leads</th>
+                      <th>
+                        <div 
+                          className="leads-header" 
+                          onMouseEnter={handleLeadsHover}
+                          onMouseLeave={handleLeadsLeave}
+                        >
+                          Leads
+                          {hoveredLeads && leadsBreakdown && (
+                            <div 
+                              className="tooltip-container"
+                              style={{
+                                position: 'fixed',
+                                left: hoveredLeads.x,
+                                top: hoveredLeads.y,
+                                transform: 'translateX(-50%) translateY(-100%)'
+                              }}
+                            >
+                              <LeadsTooltip 
+                                leadsData={leadsBreakdown} 
+                                period={periodLabels[activePeriod]} 
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </th>
                       <th>Total Links</th>
                       <th>Sales Links</th>
                       <th>Conv</th>
@@ -2680,7 +2744,31 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
                       <td>{formatNumber(rawData?.talktime || 0)}</td>
                       <td>{formatNumber(rawData?.talktimeCounselling || 0)}</td>
                       <td>{formatNumber(rawData?.talktimeFollowup || 0)}</td>
-                      <td>{formatNumber(rawData?.leads || 0)}</td>
+                      <td>
+                        <div 
+                          className="leads-cell"
+                          onMouseEnter={handleLeadsHover}
+                          onMouseLeave={handleLeadsLeave}
+                        >
+                          {formatNumber(rawData?.leads || 0)}
+                          {hoveredLeads && leadsBreakdown && (
+                            <div 
+                              className="tooltip-container"
+                              style={{
+                                position: 'fixed',
+                                left: hoveredLeads.x,
+                                top: hoveredLeads.y,
+                                transform: 'translateX(-50%) translateY(-100%)'
+                              }}
+                            >
+                              <LeadsTooltip 
+                                leadsData={leadsBreakdown} 
+                                period={periodLabels[activePeriod]} 
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td>{formatNumber(rawData?.totalLinks || 0)}</td>
                       <td>{formatNumber(rawData?.salesLinks || 0)}</td>
                       <td>{formatNumber(rawData?.conv || 0)}</td>
@@ -2734,6 +2822,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
         </div>
       </div>
 
+      {/* EXACT SAME CSS AS DASHBOARD REVENUE TAB */}
       <style jsx>{`
         .modal-overlay {
           position: fixed;
@@ -2745,12 +2834,12 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
           display: flex;
           justify-content: center;
           align-items: center;
-          z-index: 1001;
+          z-index: 1000;
           padding: 20px;
         }
 
         .modal-content {
-          background: white;
+          background: #fff;
           border-radius: 12px;
           width: 100%;
           max-width: 1200px;
@@ -2818,7 +2907,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
 
         .period-btn.active {
           background: #111827;
-          color: white;
+          color: #fff;
           border-color: #111827;
         }
 
@@ -2875,12 +2964,14 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
           justify-content: flex-end;
         }
 
-        .modal-loading, .modal-error {
+        .modal-loading,
+        .modal-error {
           padding: 40px 24px;
           text-align: center;
         }
 
-        .modal-loading .loading, .modal-error .error {
+        .modal-loading .loading,
+        .modal-error .error {
           height: auto;
           margin: 0;
         }
@@ -2894,10 +2985,102 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
           cursor: pointer;
         }
 
-        .btn:hover {
+        .btn:hover:not(:disabled) {
           opacity: 0.9;
         }
+
+        /* Leads Tooltip Styles - EXACT SAME AS DASHBOARD REVENUE TAB */
+        .leads-header, .leads-cell {
+          position: relative;
+          cursor: pointer;
+        }
+        .leads-header:hover, .leads-cell:hover {
+          background: #f0f9ff;
+        }
+        .tooltip-container {
+          z-index: 1000;
+          pointer-events: none;
+        }
+        .leads-tooltip {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 12px;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          min-width: 200px;
+          font-size: 12px;
+        }
+        .tooltip-header {
+          border-bottom: 1px solid #f3f4f6;
+          padding-bottom: 6px;
+          margin-bottom: 8px;
+          font-weight: 600;
+          color: #111827;
+        }
+        .tooltip-content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .leads-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .leads-label {
+          color: #6b7280;
+          font-weight: 500;
+        }
+        .leads-value {
+          color: #111827;
+          font-weight: 600;
+        }
       `}</style>
+    </div>
+  );
+}
+
+// ADD THIS NEW COMPONENT RIGHT AFTER THE METRICSMODAL COMPONENT (EXACT SAME AS DASHBOARD)
+function LeadsTooltip({ 
+  leadsData, 
+  period 
+}: { 
+  leadsData: {
+    totalLeads: number;
+    referralLeads: number;
+    reactiveLeads: number;
+    renewalLeads: number;
+    extensionLeads: number;
+  };
+  period: string;
+}) {
+  return (
+    <div className="leads-tooltip">
+      <div className="tooltip-header">
+        <strong>Leads Breakdown - {period}</strong>
+      </div>
+      <div className="tooltip-content">
+        <div className="leads-row">
+          <span className="leads-label">Total Leads:</span>
+          <span className="leads-value">{leadsData.totalLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Referral Leads:</span>
+          <span className="leads-value">{leadsData.referralLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Reactive Leads:</span>
+          <span className="leads-value">{leadsData.reactiveLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Renewal Leads:</span>
+          <span className="leads-value">{leadsData.renewalLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Extension Leads:</span>
+          <span className="leads-value">{leadsData.extensionLeads}</span>
+        </div>
+      </div>
     </div>
   );
 }

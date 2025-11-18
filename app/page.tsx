@@ -19,43 +19,58 @@ interface FunnelData {
       calls: number;
       connected: number;
       talktime: number;
-      talktimeCounselling: number; // ADD THIS
-      talktimeFollowup: number;    // ADD THIS
-      counsellingConnected: number; // ADD THIS (if needed for calculations)
-      followupConnected: number;    // ADD THIS (if needed for calculations)
+      talktimeCounselling: number;
+      talktimeFollowup: number;
+      counsellingConnected: number;
+      followupConnected: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
     wtd: {
       calls: number;
       connected: number;
       talktime: number;
-      talktimeCounselling: number; // ADD THIS
-      talktimeFollowup: number;    // ADD THIS
-      counsellingConnected: number; // ADD THIS (if needed for calculations)
-      followupConnected: number;    // ADD THIS (if needed for calculations)
+      talktimeCounselling: number;
+      talktimeFollowup: number;
+      counsellingConnected: number;
+      followupConnected: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
     mtd: {
       calls: number;
       connected: number;
       talktime: number;
-      talktimeCounselling: number; // ADD THIS
-      talktimeFollowup: number;    // ADD THIS
-      counsellingConnected: number; // ADD THIS (if needed for calculations)
-      followupConnected: number;    // ADD THIS (if needed for calculations)
+      talktimeCounselling: number;
+      talktimeFollowup: number;
+      counsellingConnected: number;
+      followupConnected: number;
       leads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
       salesConv: number;
+      // New leads breakdown fields
+      referralLeads: number;
+      reactiveLeads: number;
+      renewalLeads: number;
+      extensionLeads: number;
     };
   };
   metrics: {
@@ -63,8 +78,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
-      ttCounsellingPerConnectedCall: number; // ADD THIS
-      ttFollowupPerConnectedCall: number;    // ADD THIS
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -75,8 +90,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
-      ttCounsellingPerConnectedCall: number; // ADD THIS
-      ttFollowupPerConnectedCall: number;    // ADD THIS
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -87,8 +102,8 @@ interface FunnelData {
       callsPerDtPerDay: number;
       connectivity: number;
       ttPerConnectedCall: number;
-      ttCounsellingPerConnectedCall: number; // ADD THIS
-      ttFollowupPerConnectedCall: number;    // ADD THIS
+      ttCounsellingPerConnectedCall: number;
+      ttFollowupPerConnectedCall: number;
       leadsPerDtPerDay: number;
       leadVsConnected: number;
       mightPay: number;
@@ -350,7 +365,49 @@ function buildHierarchy(
   return Array.from(smMap.values());
 }
 
-// ... (previous imports and code remains exactly the same until the MetricsModal component)
+function LeadsTooltip({ 
+  leadsData, 
+  period 
+}: { 
+  leadsData: {
+    totalLeads: number;
+    referralLeads: number;
+    reactiveLeads: number;
+    renewalLeads: number;
+    extensionLeads: number;
+  };
+  period: string;
+}) {
+  return (
+    <div className="leads-tooltip">
+      <div className="tooltip-header">
+        <strong>Leads Breakdown - {period}</strong>
+      </div>
+      <div className="tooltip-content">
+        <div className="leads-row">
+          <span className="leads-label">Total Leads:</span>
+          <span className="leads-value">{leadsData.totalLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Referral Leads:</span>
+          <span className="leads-value">{leadsData.referralLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Reactive Leads:</span>
+          <span className="leads-value">{leadsData.reactiveLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Renewal Leads:</span>
+          <span className="leads-value">{leadsData.renewalLeads}</span>
+        </div>
+        <div className="leads-row">
+          <span className="leads-label">Extension Leads:</span>
+          <span className="leads-value">{leadsData.extensionLeads}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function MetricsModal({
   isOpen,
@@ -371,6 +428,7 @@ function MetricsModal({
   const [funnelData, setFunnelData] = useState<FunnelData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredLeads, setHoveredLeads] = useState<{x: number, y: number} | null>(null);
 
   useEffect(() => {
     setActivePeriod(period);
@@ -402,6 +460,18 @@ function MetricsModal({
     }
   };
 
+  const handleLeadsHover = (event: React.MouseEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setHoveredLeads({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    });
+  };
+
+  const handleLeadsLeave = () => {
+    setHoveredLeads(null);
+  };
+
   if (!isOpen) return null;
 
   const periodLabels = { y: 'Yesterday', w: 'WTD (Week to Date)', m: 'MTD (Month to Date)' };
@@ -415,6 +485,14 @@ function MetricsModal({
     num === 0 ? '-' : Number.isInteger(num) ? num.toString() : num.toFixed(1);
   const formatPercentage = (num: number) =>
     num === 0 ? '-' : `${(num * 100).toFixed(1)}%`;
+
+  const leadsBreakdown = rawData ? {
+    totalLeads: rawData.leads,
+    referralLeads: rawData.referralLeads,
+    reactiveLeads: rawData.reactiveLeads,
+    renewalLeads: rawData.renewalLeads,
+    extensionLeads: rawData.extensionLeads
+  } : null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -469,7 +547,31 @@ function MetricsModal({
                       <th>Talktime (hrs)</th>
                       <th>Talktime - Counselling (hrs)</th>
                       <th>Talktime - Follow up (hrs)</th>
-                      <th>Leads</th>
+                      <th>
+                        <div 
+                          className="leads-header" 
+                          onMouseEnter={handleLeadsHover}
+                          onMouseLeave={handleLeadsLeave}
+                        >
+                          Leads
+                          {hoveredLeads && leadsBreakdown && (
+                            <div 
+                              className="tooltip-container"
+                              style={{
+                                position: 'fixed',
+                                left: hoveredLeads.x,
+                                top: hoveredLeads.y,
+                                transform: 'translateX(-50%) translateY(-100%)'
+                              }}
+                            >
+                              <LeadsTooltip 
+                                leadsData={leadsBreakdown} 
+                                period={periodLabels[activePeriod]} 
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </th>
                       <th>Total Links</th>
                       <th>Sales Links</th>
                       <th>Conv</th>
@@ -484,7 +586,31 @@ function MetricsModal({
                       <td>{formatNumber(rawData?.talktime || 0)}</td>
                       <td>{formatNumber(rawData?.talktimeCounselling || 0)}</td>
                       <td>{formatNumber(rawData?.talktimeFollowup || 0)}</td>
-                      <td>{formatNumber(rawData?.leads || 0)}</td>
+                      <td>
+                        <div 
+                          className="leads-cell"
+                          onMouseEnter={handleLeadsHover}
+                          onMouseLeave={handleLeadsLeave}
+                        >
+                          {formatNumber(rawData?.leads || 0)}
+                          {hoveredLeads && leadsBreakdown && (
+                            <div 
+                              className="tooltip-container"
+                              style={{
+                                position: 'fixed',
+                                left: hoveredLeads.x,
+                                top: hoveredLeads.y,
+                                transform: 'translateX(-50%) translateY(-100%)'
+                              }}
+                            >
+                              <LeadsTooltip 
+                                leadsData={leadsBreakdown} 
+                                period={periodLabels[activePeriod]} 
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td>{formatNumber(rawData?.totalLinks || 0)}</td>
                       <td>{formatNumber(rawData?.salesLinks || 0)}</td>
                       <td>{formatNumber(rawData?.conv || 0)}</td>
@@ -540,8 +666,6 @@ function MetricsModal({
     </div>
   );
 }
-
-// ... (rest of the app/page.tsx code remains exactly the same)
 
 function DashboardPage() {
   const router = useRouter();
@@ -1309,6 +1433,53 @@ function DashboardPage() {
         .user-welcome{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
         .user-welcome h3{margin:0 0 4px 0;color:var(--text);font-size:16px}
         .user-welcome p{margin:0;color:var(--muted);font-size:14px}
+
+        /* Leads Tooltip Styles */
+        .leads-header, .leads-cell {
+          position: relative;
+          cursor: pointer;
+        }
+        .leads-header:hover, .leads-cell:hover {
+          background: #f0f9ff;
+        }
+        .tooltip-container {
+          z-index: 1000;
+          pointer-events: none;
+        }
+        .leads-tooltip {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 12px;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          min-width: 200px;
+          font-size: 12px;
+        }
+        .tooltip-header {
+          border-bottom: 1px solid #f3f4f6;
+          padding-bottom: 6px;
+          margin-bottom: 8px;
+          font-weight: 600;
+          color: #111827;
+        }
+        .tooltip-content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .leads-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .leads-label {
+          color: #6b7280;
+          font-weight: 500;
+        }
+        .leads-value {
+          color: #111827;
+          font-weight: 600;
+        }
       `}</style>
       <style jsx global>{CSS}</style>
     </div>
