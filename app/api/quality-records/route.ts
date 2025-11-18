@@ -1,5 +1,3 @@
-// app/api/quality-records/route.ts
-
 import { NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
 
