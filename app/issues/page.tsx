@@ -118,6 +118,8 @@ type DietitianGap = {
   commerceAchieved?: number;
   commercePercentAchieved?: number;
   commerceConsecutiveZeroDays?: number;
+  // NEW: MTD Zero Sales flag
+  hasMtdZeroSales?: boolean;
 };
 
 // NEW: Dietitian Quality Record type
@@ -134,8 +136,6 @@ type DietitianQualityRecord = {
   npsScore: number;
 };
 
-// Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
-// Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
 // Funnel Data Interface (reuse from main dashboard) - UPDATED WITH NEW FIELDS
 interface FunnelData {
   teamSize: number;
@@ -256,6 +256,8 @@ export default function IssuesPage() {
   const [underperformingAMs, setUnderperformingAMs] = useState<IssueAM[]>([]);
   const [underperformingMs, setUnderperformingMs] = useState<IssueM[]>([]);
   const [underperformingDietitians, setUnderperformingDietitians] = useState<DietitianGap[]>([]);
+  // NEW: State for MTD dietitians
+  const [underperformingMtdDietitians, setUnderperformingMtdDietitians] = useState<DietitianGap[]>([]);
   
   // NEW: State for excluded names from Key Mapping
   const [excludedNames, setExcludedNames] = useState<Set<string>>(new Set());
@@ -321,6 +323,47 @@ export default function IssuesPage() {
   // NEW: Helper function to format commerce values (no lakh conversion)
   const fmtCommerce = (n: number): string => {
     return n.toLocaleString();
+  };
+
+  // NEW: Function to load initial quality data
+  const loadInitialQualityData = async (smName: string) => {
+    try {
+      // Load NPS low AND medium data
+      const [npsLowResponse, npsMediumResponse] = await Promise.all([
+        fetch(`/api/nps-issues?smName=${smName}&type=low`),
+        fetch(`/api/nps-issues?smName=${smName}&type=medium`)
+      ]);
+      
+      let allNpsData: DietitianQualityRecord[] = [];
+      if (npsLowResponse.ok) {
+        const npsLowData = await npsLowResponse.json();
+        allNpsData = allNpsData.concat(npsLowData.records || []);
+      }
+      if (npsMediumResponse.ok) {
+        const npsMediumData = await npsMediumResponse.json();
+        allNpsData = allNpsData.concat(npsMediumData.records || []);
+      }
+      setNpsData(allNpsData);
+
+      // Load CSAT low AND medium data  
+      const [csatLowResponse, csatMediumResponse] = await Promise.all([
+        fetch(`/api/csat-issues?smName=${smName}&type=low`),
+        fetch(`/api/csat-issues?smName=${smName}&type=medium`)
+      ]);
+      
+      let allCsatData: DietitianQualityRecord[] = [];
+      if (csatLowResponse.ok) {
+        const csatLowData = await csatLowResponse.json();
+        allCsatData = allCsatData.concat(csatLowData.records || []);
+      }
+      if (csatMediumResponse.ok) {
+        const csatMediumData = await csatMediumResponse.json();
+        allCsatData = allCsatData.concat(csatMediumData.records || []);
+      }
+      setCsatData(allCsatData);
+    } catch (error) {
+      console.error('Error loading initial quality data:', error);
+    }
   };
 
   // Check authentication on component mount
@@ -403,6 +446,12 @@ export default function IssuesPage() {
         if (dietitianGapsResponse.ok) {
           const gapsData = await dietitianGapsResponse.json();
           setUnderperformingDietitians(gapsData.dietitianGaps || []);
+          
+          // NEW: Filter MTD dietitians
+          const mtdDietitians = gapsData.dietitianGaps?.filter((dietitian: DietitianGap) => 
+            dietitian.hasMtdZeroSales === true
+          ) || [];
+          setUnderperformingMtdDietitians(mtdDietitians);
         }
       } catch (err) {
         console.error('Error loading data:', err);
@@ -415,10 +464,14 @@ export default function IssuesPage() {
     loadData();
   }, [isAuthenticated, userRole, userName]);
 
-  // NEW: Fetch filter options when SM changes
+  // NEW: Auto-load quality data when page loads or SM changes
   useEffect(() => {
     if (selectedSM || userRole === 'sm') {
-      fetchFilterOptions();
+      const smName = userRole === 'sm' ? userName : selectedSM?.name;
+      if (smName) {
+        loadInitialQualityData(smName);
+        fetchFilterOptions();
+      }
     }
   }, [selectedSM, userRole, userName]);
 
@@ -518,20 +571,25 @@ export default function IssuesPage() {
     setCsatData([]);
   };
 
-  // NEW: Handle quality details view
+  // NEW: Handle quality details view with LOW pre-selected
   const handleQualityDetails = async (qualityType: 'nps' | 'csat') => {
     setSelectedQualityType(qualityType);
     setIsQualityPanelOpen(true);
     
-    // Load initial data when panel opens
+    // Set LOW as active quality type by default
+    setActiveQualityType('low');
+    
     const smName = userRole === 'sm' ? userName : selectedSM?.name;
     if (!smName) return;
 
-    // Reset filters and load all data for the selected SM
+    // Reset filters
     setQualityFilters({ manager: '', am: '', flap: '', em: '' });
-    setActiveQualityType('');
     
-    const queryParams = new URLSearchParams({ smName });
+    // Load LOW data for the selected quality type
+    const queryParams = new URLSearchParams({ 
+      smName, 
+      type: 'low'
+    });
     
     if (qualityType === 'nps') {
       setLoadingNps(true);
@@ -668,6 +726,24 @@ export default function IssuesPage() {
     }
   }, [underperformingDietitians, userRole, userName, selectedSM, activeTab]);
 
+  // NEW: Filter MTD dietitians by selected SM
+  const filteredMtdDietitians = useMemo(() => {
+    let dietitians = underperformingMtdDietitians;
+    
+    // Filter by SM
+    if (userRole === 'sm') {
+      dietitians = dietitians.filter(dietitian => 
+        dietitian.smName.toLowerCase() === userName.toLowerCase()
+      );
+    } else if (selectedSM?.name) {
+      dietitians = dietitians.filter(d => 
+        d.smName.toLowerCase() === selectedSM.name.toLowerCase()
+      );
+    }
+    
+    return dietitians;
+  }, [underperformingMtdDietitians, userRole, userName, selectedSM]);
+
   // Calculate total count for the card (both sales + commerce)
   const totalDietitianCount = useMemo(() => {
     let dietitians = underperformingDietitians;
@@ -689,6 +765,11 @@ export default function IssuesPage() {
     
     return activeTab === 'service' ? salesCount : commerceCount;
   }, [underperformingDietitians, userRole, userName, selectedSM, activeTab]);
+
+  // NEW: Calculate MTD dietitian count
+  const mtdDietitianCount = useMemo(() => {
+    return filteredMtdDietitians.length;
+  }, [filteredMtdDietitians]);
 
   // NEW: Calculate NPS and CSAT counts for display in cards
   const npsLowCount = useMemo(() => {
@@ -724,11 +805,19 @@ export default function IssuesPage() {
   const handleSMChange = (smId: string) => {
     const sm = data.find(s => s.id === smId) || null;
     setSelectedSM(sm);
+    
     // Reset quality filters when SM changes
     setQualityFilters({ manager: '', am: '', flap: '', em: '' });
     setActiveQualityType('');
     setNpsData([]);
     setCsatData([]);
+    
+    // Auto-load quality data for new SM
+    if (sm) {
+      loadInitialQualityData(sm.name);
+    } else if (userRole === 'sm') {
+      loadInitialQualityData(userName);
+    }
   };
 
   const handleViewDetails = (issueType: string) => {
@@ -1007,14 +1096,37 @@ export default function IssuesPage() {
             </button>
           </div>
 
-          {/* NEW: NPS Issues Card */}
+          {/* NEW: Underperforming Dietitians - MTD Card */}
+          {activeTab === 'service' && (
+            <div className="issue-card">
+              <div className="issue-header">
+                <h3 className="issue-title">Underperforming Dietitians - MTD</h3>
+                <div className="issue-count">{mtdDietitianCount}</div>
+              </div>
+              
+              <p className="issue-description">
+                Dietitians with zero sales since MTD & 30+ ACC
+                <br />
+                <small>Showing: {filteredMtdDietitians.length} dietitians</small>
+              </p>
+              <button 
+                className="view-details-btn"
+                onClick={() => handleViewDetails('mtd-dietitians')}
+                disabled={mtdDietitianCount === 0}
+              >
+                View Details →
+              </button>
+            </div>
+          )}
+
+          {/* NPS Issues Card */}
           <div className="issue-card">
             <div className="issue-header">
               <h3 className="issue-title">NPS Issues</h3>
               <div className="issue-count">{npsLowCount + npsMediumCount}</div>
             </div>
             <p className="issue-description">
-              Dietitians with low and medium NPS scores
+              Clients with low and medium NPS scores
               <br />
               <small>Low NPS: {npsLowCount} | Medium NPS: {npsMediumCount}</small>
             </p>
@@ -1027,14 +1139,14 @@ export default function IssuesPage() {
             </button>
           </div>
 
-          {/* NEW: CSAT Issues Card */}
+          {/* CSAT Issues Card */}
           <div className="issue-card">
             <div className="issue-header">
               <h3 className="issue-title">CSAT Issues</h3>
               <div className="issue-count">{csatLowCount + csatMediumCount}</div>
             </div>
             <p className="issue-description">
-              Dietitians with low and medium CSAT scores
+              Clients with low and medium CSAT scores
               <br />
               <small>Low CSAT: {csatLowCount} | Medium CSAT: {csatMediumCount}</small>
             </p>
@@ -1056,35 +1168,37 @@ export default function IssuesPage() {
             issueType={selectedIssue}
             ams={underperformingAMs}
             ms={underperformingMs}
-            dietitians={filteredDietitians}
+            dietitians={
+              selectedIssue === 'dietitians' ? filteredDietitians :
+              selectedIssue === 'mtd-dietitians' ? filteredMtdDietitians :
+              []
+            }
             onMetricClick={handleMetricClick}
             revenueType={activeTab === 'service' ? 'sales' : 'commerce'}
           />
         )}
 
         {/* NEW: Quality Details Panel */}
-        
-
-{isQualityPanelOpen && (
-  <QualityDetailsPanel
-    isOpen={isQualityPanelOpen}
-    onClose={() => {
-      setIsQualityPanelOpen(false);
-      setSelectedQualityType('');
-      setActiveQualityType('');
-    }}
-    qualityType={selectedQualityType as 'nps' | 'csat'} // Add type assertion here
-    filters={qualityFilters}
-    filterOptions={filterOptions}
-    onFilterChange={handleFilterChange}
-    onQualityView={handleQualityView}
-    npsData={npsData}
-    csatData={csatData}
-    loadingNps={loadingNps}
-    loadingCsat={loadingCsat}
-    activeQualityType={activeQualityType}
-  />
-)}
+        {isQualityPanelOpen && (
+          <QualityDetailsPanel
+            isOpen={isQualityPanelOpen}
+            onClose={() => {
+              setIsQualityPanelOpen(false);
+              setSelectedQualityType('');
+              setActiveQualityType('');
+            }}
+            qualityType={selectedQualityType as 'nps' | 'csat'}
+            filters={qualityFilters}
+            filterOptions={filterOptions}
+            onFilterChange={handleFilterChange}
+            onQualityView={handleQualityView}
+            npsData={npsData}
+            csatData={csatData}
+            loadingNps={loadingNps}
+            loadingCsat={loadingCsat}
+            activeQualityType={activeQualityType}
+          />
+        )}
 
         {/* Funnel Metrics Modal */}
         <MetricsModal
@@ -2122,6 +2236,92 @@ function IssueDetailsPanel({
               )}
             </>
           )}
+
+          {/* NEW: MTD Dietitians Section */}
+          {issueType === 'mtd-dietitians' && (
+            <>
+              <div className="issue-info">
+                <h3>Underperforming Dietitians - MTD - Sales Revenue</h3>
+                <p>
+                  Dietitians with zero sales since MTD & 30+ ACC
+                </p>
+                <div className="issue-count-badge">{dietitians.length} Dietitians found</div>
+              </div>
+
+              {dietitians.length > 0 ? (
+                <div className="dietitians-list">
+                  <div className="card">
+                    <div className="thead">
+                      <div className="h-name">
+                        <div className="h-title">Dietitian Name</div>
+                      </div>
+                      <div className="h-role">
+                        <div className="h-title">SM Name</div>
+                      </div>
+                      <div className="h-group">
+                        <div className="g-title">ACC</div>
+                      </div>
+                      <div className="h-group merged">
+                        <div className="g-title">Sales</div>
+                        <div className="g-sub">
+                          <span>Target</span><span>Achieved</span><span>%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="tbody">
+                      {dietitians.map((dietitian, index) => (
+                        <div key={`${dietitian.dietitianName}-${index}`} className="row">
+                          <div className="c-name">
+                            <span className="nm">{dietitian.dietitianName}</span>
+                          </div>
+                          <div className="c-role">{dietitian.smName}</div>
+                          
+                          {/* Days Since Joining (ACC) */}
+                          <div className="grp">
+                            <div className="days-since-joining">
+                              <div className="n days-joined">{dietitian.daysSinceJoining || 0}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Revenue Metrics */}
+                          <div className="grp">
+                            <div className="nums">
+                              <div
+                                className="n target clickable"
+                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                title="View Sales Funnel (MTD)"
+                              >
+                                {fmtLakhs(dietitian.salesTarget)}
+                              </div>
+                              <div
+                                className="n achieved clickable"
+                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                title="View Sales Funnel (MTD)"
+                              >
+                                {fmtLakhs(dietitian.salesAchieved)}
+                              </div>
+                              <div
+                                className={`n pct ${getPercentageColor(dietitian.percentAchieved)} clickable`}
+                                onClick={() => onMetricClick(dietitian.dietitianName, 'Dietitian', 'm')}
+                                title="View Sales Performance (MTD)"
+                              >
+                                {Math.round(dietitian.percentAchieved)}%
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="no-issues">
+                  <p>No underperforming MTD dietitians found for sales revenue</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -2545,8 +2745,6 @@ function IssueDetailsPanel({
   );
 }
 
-// Metrics Modal Component - UPDATED WITH NEW METRICS
-// Metrics Modal Component - UPDATED WITH LEADS BREAKDOWN (SAME STYLING AS DASHBOARD)
 // Metrics Modal Component - UPDATED WITH LEADS BREAKDOWN (EXACT SAME STYLING AS DASHBOARD REVENUE TAB)
 function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: {
   isOpen: boolean;

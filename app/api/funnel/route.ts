@@ -1,4 +1,4 @@
-// app/api/funnel/route.ts
+// app/api/funnel/route.ts - CORRECTED UNIQUE CALLS COLUMNS
 
 import { NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
@@ -82,7 +82,9 @@ export interface FunnelData {
   rawTallies: {
     ytd: {
       calls: number;
+      uniqueCalls: number;
       connected: number;
+      uniqueConnected: number;
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
@@ -93,7 +95,6 @@ export interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
-      // New leads breakdown fields
       referralLeads: number;
       reactiveLeads: number;
       renewalLeads: number;
@@ -101,7 +102,9 @@ export interface FunnelData {
     };
     wtd: {
       calls: number;
+      uniqueCalls: number;
       connected: number;
+      uniqueConnected: number;
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
@@ -112,7 +115,6 @@ export interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
-      // New leads breakdown fields
       referralLeads: number;
       reactiveLeads: number;
       renewalLeads: number;
@@ -120,7 +122,9 @@ export interface FunnelData {
     };
     mtd: {
       calls: number;
+      uniqueCalls: number;
       connected: number;
+      uniqueConnected: number;
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
@@ -131,7 +135,6 @@ export interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
-      // New leads breakdown fields
       referralLeads: number;
       reactiveLeads: number;
       renewalLeads: number;
@@ -191,7 +194,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const funnelData = await getSheetData('Dietitian Funnel!A2:BG');
+    const funnelData = await getSheetData('Dietitian Funnel!A2:BL');
     const { daysWTD, daysMTD } = calculateDays();
 
     const roleColumns = {
@@ -216,28 +219,69 @@ export async function GET(request: Request) {
     let teamSize = 0;
     const tallies = {
       ytd: { 
-        calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
-        counsellingConnected: 0, followupConnected: 0,
-        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0,
-        referralLeads: 0, reactiveLeads: 0, renewalLeads: 0, extensionLeads: 0
+        calls: 0, 
+        uniqueCalls: 0,
+        connected: 0,
+        uniqueConnected: 0,
+        talktime: 0, 
+        talktimeCounselling: 0, 
+        talktimeFollowup: 0, 
+        counsellingConnected: 0, 
+        followupConnected: 0,
+        leads: 0, 
+        totalLinks: 0, 
+        salesLinks: 0, 
+        conv: 0, 
+        salesConv: 0,
+        referralLeads: 0, 
+        reactiveLeads: 0, 
+        renewalLeads: 0, 
+        extensionLeads: 0
       },
       wtd: { 
-        calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
-        counsellingConnected: 0, followupConnected: 0,
-        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0,
-        referralLeads: 0, reactiveLeads: 0, renewalLeads: 0, extensionLeads: 0
+        calls: 0, 
+        uniqueCalls: 0,
+        connected: 0,
+        uniqueConnected: 0,
+        talktime: 0, 
+        talktimeCounselling: 0, 
+        talktimeFollowup: 0, 
+        counsellingConnected: 0, 
+        followupConnected: 0,
+        leads: 0, 
+        totalLinks: 0, 
+        salesLinks: 0, 
+        conv: 0, 
+        salesConv: 0,
+        referralLeads: 0, 
+        reactiveLeads: 0, 
+        renewalLeads: 0, 
+        extensionLeads: 0
       },
       mtd: { 
-        calls: 0, connected: 0, talktime: 0, talktimeCounselling: 0, talktimeFollowup: 0, 
-        counsellingConnected: 0, followupConnected: 0,
-        leads: 0, totalLinks: 0, salesLinks: 0, conv: 0, salesConv: 0,
-        referralLeads: 0, reactiveLeads: 0, renewalLeads: 0, extensionLeads: 0
+        calls: 0, 
+        uniqueCalls: 0,
+        connected: 0,
+        uniqueConnected: 0,
+        talktime: 0, 
+        talktimeCounselling: 0, 
+        talktimeFollowup: 0, 
+        counsellingConnected: 0, 
+        followupConnected: 0,
+        leads: 0, 
+        totalLinks: 0, 
+        salesLinks: 0, 
+        conv: 0, 
+        salesConv: 0,
+        referralLeads: 0, 
+        reactiveLeads: 0, 
+        renewalLeads: 0, 
+        extensionLeads: 0
       }
     };
 
-    // === FIXED: Different logic for EM role - No ACC > 30 requirement ===
+    // Role-based team size calculation
     if (role === 'EM') {
-      // For EM role, count all matching rows regardless of Column E value
       for (const row of funnelData) {
         const rowName = row[columnIndex]?.trim();
         if (rowName && rowName.toLowerCase() === name.toLowerCase()) {
@@ -245,7 +289,6 @@ export async function GET(request: Request) {
         }
       }
     } else if (role === 'Dietitian' || role === 'D') {
-      // For Dietitian role - existing logic
       let eligible = false;
       for (const row of funnelData) {
         const rowName = row[columnIndex]?.trim();
@@ -262,7 +305,6 @@ export async function GET(request: Request) {
       }
       teamSize = eligible ? 1 : 0;
     } else {
-      // For other roles (SM, M, AM, FLAP) - existing ACC > 30 logic
       for (const row of funnelData) {
         const rowName = row[columnIndex]?.trim();
         const columnEValue = row[4];
@@ -278,83 +320,81 @@ export async function GET(request: Request) {
       }
     }
 
-    // === FIXED: Data processing logic for EM role - No ACC requirement ===
+    // Data processing
     if ((role === 'EM') ? teamSize > 0 : (role === 'Dietitian' || role === 'D') ? true : teamSize > 0) {
       for (const row of funnelData) {
         const rowName = row[columnIndex]?.trim();
         const columnEValue = row[4];
         
         if (rowName && rowName.toLowerCase() === name.toLowerCase()) {
-          // For EM role, process data regardless of Column E
-          // For other roles, keep existing logic
           const shouldProcessData = role === 'EM' ? true : 
             (columnEValue && columnEValue !== '' && !isNaN(Number(columnEValue)) && parseNumber(columnEValue) >= 0);
           
           if (shouldProcessData) {
-            // YTD columns (K-R)
+            // YTD columns
             tallies.ytd.calls += parseNumber(row[10]); // K
+            tallies.ytd.uniqueCalls += parseNumber(row[58]); // BG (58-1 = 57)
             tallies.ytd.connected += parseNumber(row[11]); // L
-            tallies.ytd.talktime += parseNumber(row[12]) / 3600; // M -> hours
+            tallies.ytd.uniqueConnected += parseNumber(row[61]); // BJ (62-1 = 61)
+            tallies.ytd.talktime += parseNumber(row[12]) / 3600; // M
             tallies.ytd.leads += parseNumber(row[13]); // N
             tallies.ytd.totalLinks += parseNumber(row[14]) + parseNumber(row[16]); // O + Q
             tallies.ytd.salesLinks += parseNumber(row[16]); // Q
             tallies.ytd.conv += parseNumber(row[15]) + parseNumber(row[17]); // P + R
             tallies.ytd.salesConv += parseNumber(row[17]); // R
 
-            // WTD columns (S-Z)
+            // WTD columns
             tallies.wtd.calls += parseNumber(row[18]); // S
+            tallies.wtd.uniqueCalls += parseNumber(row[59]); // BH (59-1 = 58)
             tallies.wtd.connected += parseNumber(row[19]); // T
-            tallies.wtd.talktime += parseNumber(row[20]) / 3600; // U -> hours
+            tallies.wtd.uniqueConnected += parseNumber(row[62]); // BK (63-1 = 62)
+            tallies.wtd.talktime += parseNumber(row[20]) / 3600; // U
             tallies.wtd.leads += parseNumber(row[21]); // V
             tallies.wtd.totalLinks += parseNumber(row[22]) + parseNumber(row[24]); // W + Y
             tallies.wtd.salesLinks += parseNumber(row[24]); // Y
             tallies.wtd.conv += parseNumber(row[23]) + parseNumber(row[25]); // X + Z
             tallies.wtd.salesConv += parseNumber(row[25]); // Z
 
-            // MTD columns (AA-AH)
+            // MTD columns
             tallies.mtd.calls += parseNumber(row[26]); // AA
+            tallies.mtd.uniqueCalls += parseNumber(row[60]); // BI (60-1 = 59)
             tallies.mtd.connected += parseNumber(row[27]); // AB
-            tallies.mtd.talktime += parseNumber(row[28]) / 3600; // AC -> hours
+            tallies.mtd.uniqueConnected += parseNumber(row[63]); // BL (64-1 = 63)
+            tallies.mtd.talktime += parseNumber(row[28]) / 3600; // AC
             tallies.mtd.leads += parseNumber(row[29]); // AD
             tallies.mtd.totalLinks += parseNumber(row[30]) + parseNumber(row[32]); // AE + AG
             tallies.mtd.salesLinks += parseNumber(row[32]); // AG
             tallies.mtd.conv += parseNumber(row[31]) + parseNumber(row[33]); // AF + AH
             tallies.mtd.salesConv += parseNumber(row[33]); // AH
 
-            // New columns for Talktime - Counselling (AI-AK)
-            tallies.ytd.talktimeCounselling += parseNumber(row[34]) / 3600; // AI -> hours
-            tallies.wtd.talktimeCounselling += parseNumber(row[35]) / 3600; // AJ -> hours
-            tallies.mtd.talktimeCounselling += parseNumber(row[36]) / 3600; // AK -> hours
+            // Continue with other columns...
+            tallies.ytd.talktimeCounselling += parseNumber(row[34]) / 3600; // AI
+            tallies.wtd.talktimeCounselling += parseNumber(row[35]) / 3600; // AJ
+            tallies.mtd.talktimeCounselling += parseNumber(row[36]) / 3600; // AK
 
-            // New columns for Talktime - Follow up (AL-AN)
-            tallies.ytd.talktimeFollowup += parseNumber(row[37]) / 3600; // AL -> hours
-            tallies.wtd.talktimeFollowup += parseNumber(row[38]) / 3600; // AM -> hours
-            tallies.mtd.talktimeFollowup += parseNumber(row[39]) / 3600; // AN -> hours
+            tallies.ytd.talktimeFollowup += parseNumber(row[37]) / 3600; // AL
+            tallies.wtd.talktimeFollowup += parseNumber(row[38]) / 3600; // AM
+            tallies.mtd.talktimeFollowup += parseNumber(row[39]) / 3600; // AN
 
-            // Counselling Connected (denominator for ttCounsellingPerConnectedCall)
-            tallies.ytd.counsellingConnected += parseNumber(row[40]); // AO -> YTD
-            tallies.wtd.counsellingConnected += parseNumber(row[41]); // AP -> WTD
-            tallies.mtd.counsellingConnected += parseNumber(row[42]); // AQ -> MTD
+            tallies.ytd.counsellingConnected += parseNumber(row[40]); // AO
+            tallies.wtd.counsellingConnected += parseNumber(row[41]); // AP
+            tallies.mtd.counsellingConnected += parseNumber(row[42]); // AQ
 
-            // Followup Connected (denominator for ttFollowupPerConnectedCall)
-            tallies.ytd.followupConnected += parseNumber(row[43]); // AR -> YTD
-            tallies.wtd.followupConnected += parseNumber(row[44]); // AS -> WTD
-            tallies.mtd.followupConnected += parseNumber(row[45]); // AT -> MTD
+            tallies.ytd.followupConnected += parseNumber(row[43]); // AR
+            tallies.wtd.followupConnected += parseNumber(row[44]); // AS
+            tallies.mtd.followupConnected += parseNumber(row[45]); // AT
 
-            // New Leads Breakdown columns
-            // YTD Leads Breakdown (AU-AX)
+            // Leads breakdown
             tallies.ytd.referralLeads += parseNumber(row[46]); // AU
             tallies.ytd.reactiveLeads += parseNumber(row[47]); // AV
             tallies.ytd.renewalLeads += parseNumber(row[48]); // AW
             tallies.ytd.extensionLeads += parseNumber(row[49]); // AX
 
-            // WTD Leads Breakdown (AY-BB)
             tallies.wtd.referralLeads += parseNumber(row[50]); // AY
             tallies.wtd.reactiveLeads += parseNumber(row[51]); // AZ
             tallies.wtd.renewalLeads += parseNumber(row[52]); // BA
             tallies.wtd.extensionLeads += parseNumber(row[53]); // BB
 
-            // MTD Leads Breakdown (BC-BF)
             tallies.mtd.referralLeads += parseNumber(row[54]); // BC
             tallies.mtd.reactiveLeads += parseNumber(row[55]); // BD
             tallies.mtd.renewalLeads += parseNumber(row[56]); // BE
@@ -369,12 +409,12 @@ export async function GET(request: Request) {
       const data = tallies[period];
       return {
         callsPerDtPerDay: teamSize > 0 && days > 0 ? data.calls / (teamSize * days) : 0,
-        connectivity: safeDivide(data.connected, data.calls),
-        ttPerConnectedCall: safeDivide(data.talktime * 60, data.connected), // minutes
-        ttCounsellingPerConnectedCall: safeDivide(data.talktimeCounselling * 60, data.counsellingConnected), // minutes
-        ttFollowupPerConnectedCall: safeDivide(data.talktimeFollowup * 60, data.followupConnected), // minutes
+        connectivity: safeDivide(data.uniqueConnected, data.uniqueCalls),
+        ttPerConnectedCall: safeDivide(data.talktime * 60, data.connected),
+        ttCounsellingPerConnectedCall: safeDivide(data.talktimeCounselling * 60, data.counsellingConnected),
+        ttFollowupPerConnectedCall: safeDivide(data.talktimeFollowup * 60, data.followupConnected),
         leadsPerDtPerDay: teamSize > 0 && days > 0 ? data.leads / (teamSize * days) : 0,
-        leadVsConnected: safeDivide(data.leads, data.connected),
+        leadVsConnected: safeDivide(data.leads, data.uniqueConnected),
         mightPay: safeDivide(data.totalLinks, data.leads),
         convPercent: safeDivide(data.conv, data.totalLinks),
         salesTeamConv: safeDivide(data.salesConv, data.salesLinks)
@@ -387,7 +427,7 @@ export async function GET(request: Request) {
       mtd: calculateMetrics('mtd', daysMTD)
     };
 
-    // Round metrics to 3 decimals
+    // Round metrics
     const roundMetrics = (metricsObj: any) => {
       const rounded: any = {};
       for (const [key, value] of Object.entries(metricsObj)) {

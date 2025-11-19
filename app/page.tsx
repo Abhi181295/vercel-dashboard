@@ -12,12 +12,16 @@ export const revalidate = 300; // 5 minutes
  *  centered header bubbles, centered "Target" header, and "Direct Reports" hidden
  * ========================================================================== */
 
+// In the FunnelData interface in page.tsx, update it to match the backend exactly:
+
 interface FunnelData {
   teamSize: number;
   rawTallies: {
     ytd: {
       calls: number;
+      uniqueCalls: number;
       connected: number;
+      uniqueConnected: number;
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
@@ -28,7 +32,6 @@ interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
-      // New leads breakdown fields
       referralLeads: number;
       reactiveLeads: number;
       renewalLeads: number;
@@ -36,7 +39,9 @@ interface FunnelData {
     };
     wtd: {
       calls: number;
+      uniqueCalls: number;
       connected: number;
+      uniqueConnected: number;
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
@@ -47,7 +52,6 @@ interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
-      // New leads breakdown fields
       referralLeads: number;
       reactiveLeads: number;
       renewalLeads: number;
@@ -55,7 +59,9 @@ interface FunnelData {
     };
     mtd: {
       calls: number;
+      uniqueCalls: number;
       connected: number;
+      uniqueConnected: number;
       talktime: number;
       talktimeCounselling: number;
       talktimeFollowup: number;
@@ -66,7 +72,6 @@ interface FunnelData {
       salesLinks: number;
       conv: number;
       salesConv: number;
-      // New leads breakdown fields
       referralLeads: number;
       reactiveLeads: number;
       renewalLeads: number;
@@ -543,7 +548,9 @@ function MetricsModal({
                     <tr>
                       <th>#Dietitians (ACC&nbsp;&gt;&nbsp;30)</th>
                       <th>Calls</th>
+					  <th>Unique Calls</th>
                       <th>Connected</th>
+					  <th>Unique Connected</th>
                       <th>Talktime (hrs)</th>
                       <th>Talktime - Counselling (hrs)</th>
                       <th>Talktime - Follow up (hrs)</th>
@@ -582,7 +589,9 @@ function MetricsModal({
                     <tr>
                       <td>{funnelData.teamSize}</td>
                       <td>{formatNumber(rawData?.calls || 0)}</td>
+					  <td>{formatNumber(rawData?.uniqueCalls || 0)}</td>
                       <td>{formatNumber(rawData?.connected || 0)}</td>
+					  <td>{formatNumber(rawData?.uniqueConnected || 0)}</td>
                       <td>{formatNumber(rawData?.talktime || 0)}</td>
                       <td>{formatNumber(rawData?.talktimeCounselling || 0)}</td>
                       <td>{formatNumber(rawData?.talktimeFollowup || 0)}</td>

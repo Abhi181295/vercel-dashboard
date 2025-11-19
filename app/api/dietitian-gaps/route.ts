@@ -63,6 +63,8 @@ export interface DietitianGap {
   commerceAchieved?: number;
   commercePercentAchieved?: number;
   commerceConsecutiveZeroDays?: number;
+  // NEW: MTD Zero Sales flag
+  hasMtdZeroSales?: boolean;
 }
 
 export async function GET(request: Request) {
@@ -105,6 +107,9 @@ export async function GET(request: Request) {
       const commerceConsecutiveZeroDays = parseNumber(row[19]); // Column T - Commerce Zero Days
       const commercePercentAchieved = commerceTarget > 0 ? (commerceAchieved / commerceTarget) * 100 : 0;
 
+      // NEW: MTD Zero Sales flag - Sales Target > 0 AND Sales Achieved = 0
+      const hasMtdZeroSales = salesTarget > 0 && salesAchieved === 0;
+
       // ✅ Exclusion conditions (OR)
       const excludeFromKeyMapping = dietitianName && excludedNames.has(dietitianName.toLowerCase());
       const excludeFlag = (row[12] || '').trim().toUpperCase(); // Column M
@@ -136,7 +141,9 @@ export async function GET(request: Request) {
           commerceTarget,
           commerceAchieved,
           commercePercentAchieved,
-          commerceConsecutiveZeroDays
+          commerceConsecutiveZeroDays,
+          // NEW: MTD Zero Sales flag
+          hasMtdZeroSales
         });
       }
     }
