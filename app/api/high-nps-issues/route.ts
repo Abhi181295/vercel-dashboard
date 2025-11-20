@@ -97,7 +97,7 @@ export async function GET(request: Request) {
       // Filter by HIGH NPS type (8-10)
       let shouldInclude = false;
       if (npsType === 'high') {
-        shouldInclude = npsScore >= 8 && npsScore <= 10;
+        shouldInclude = npsScore >= 9 && npsScore <= 10;
       } else {
         shouldInclude = false;
       }

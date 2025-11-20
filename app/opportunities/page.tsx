@@ -637,7 +637,7 @@ export default function OpportunitiesPage() {
               <div className="issue-count" style={{background: '#10b981'}}>{highNpsData.length}</div>
             </div>
             <p className="issue-description">
-              Clients with high NPS scores (8-10)
+              Clients with high NPS scores (9-10)
               <br />
               <small>Excellent customer satisfaction and loyalty</small>
             </p>
