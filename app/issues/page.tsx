@@ -863,22 +863,25 @@ export default function IssuesPage() {
           </div>
 
           <nav className="nav">
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">🏠</span> Dashboard
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">👥</span> Revenue
-            </a>
-			<a className="nav-item" onClick={() => router.push('/quality')}>
-              <span className="i">✅</span> Quality
-            </a>
-            <a className="nav-item active">
-              <span className="i">🛠️</span> Issues
-            </a>
-            <a className="nav-item">
-              <span className="i">📊</span> Analytics
-            </a>
-          </nav>
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">🏠</span> Dashboard
+  </a>
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">👥</span> Revenue
+  </a>
+  <a className="nav-item" onClick={() => router.push('/quality')}>
+    <span className="i">✅</span> Quality
+  </a>
+  <a className="nav-item" onClick={() => router.push('/issues')}>
+    <span className="i">🛠️</span> Issues
+  </a>
+  <a className="nav-item" onClick={() => router.push('/opportunities')}>
+    <span className="i">🚀</span> Opportunities
+  </a>
+  <a className="nav-item">
+    <span className="i">📊</span> Analytics
+  </a>
+</nav>
 
           <div className="user-info">
             <div className="user-name">{userName}</div>
@@ -907,22 +910,25 @@ export default function IssuesPage() {
           </div>
 
           <nav className="nav">
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">🏠</span> Dashboard
-            </a>
-            <a className="nav-item" onClick={() => router.push('/')}>
-              <span className="i">👥</span> Revenue
-            </a>
-			<a className="nav-item" onClick={() => router.push('/quality')}>
-              <span className="i">✅</span> Quality
-            </a>
-            <a className="nav-item active">
-              <span className="i">🛠️</span> Issues
-            </a>
-            <a className="nav-item">
-              <span className="i">📊</span> Analytics
-            </a>
-          </nav>
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">🏠</span> Dashboard
+  </a>
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">👥</span> Revenue
+  </a>
+  <a className="nav-item" onClick={() => router.push('/quality')}>
+    <span className="i">✅</span> Quality
+  </a>
+  <a className="nav-item" onClick={() => router.push('/issues')}>
+    <span className="i">🛠️</span> Issues
+  </a>
+  <a className="nav-item" onClick={() => router.push('/opportunities')}>
+    <span className="i">🚀</span> Opportunities
+  </a>
+  <a className="nav-item">
+    <span className="i">📊</span> Analytics
+  </a>
+</nav>
 
           <div className="user-info">
             <div className="user-name">{userName}</div>
@@ -964,22 +970,25 @@ export default function IssuesPage() {
         </div>
 
         <nav className="nav">
-          <a className="nav-item" onClick={() => router.push('/')}>
-            <span className="i">🏠</span> Dashboard
-          </a>
-          <a className="nav-item" onClick={() => router.push('/')}>
-            <span className="i">👥</span> Revenue
-          </a>
-		  <a className="nav-item" onClick={() => router.push('/quality')}>
-              <span className="i">✅</span> Quality
-            </a>
-          <a className="nav-item active">
-            <span className="i">🛠️</span> Issues
-          </a>
-          <a className="nav-item">
-            <span className="i">📊</span> Analytics
-          </a>
-        </nav>
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">🏠</span> Dashboard
+  </a>
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">👥</span> Revenue
+  </a>
+  <a className="nav-item" onClick={() => router.push('/quality')}>
+    <span className="i">✅</span> Quality
+  </a>
+  <a className="nav-item" onClick={() => router.push('/issues')}>
+    <span className="i">🛠️</span> Issues
+  </a>
+  <a className="nav-item" onClick={() => router.push('/opportunities')}>
+    <span className="i">🚀</span> Opportunities
+  </a>
+  <a className="nav-item">
+    <span className="i">📊</span> Analytics
+  </a>
+</nav>
 
         <div className="user-info">
           <div className="user-name">{userName}</div>
