@@ -1155,7 +1155,7 @@ function QualityDetailsPanel({
                 onClick={() => onQualityView(qualityType, 'high')}
                 style={{background: activeQualityType === 'high' ? '#10b981' : '#fff'}}
               >
-                HIGH {qualityType.toUpperCase()} ({(qualityType === 'nps' ? '8-10' : '4-5')})
+                HIGH {qualityType.toUpperCase()} ({(qualityType === 'nps' ? '9-10' : '4-5')})
               </button>
             </div>
           </div>
