@@ -744,7 +744,16 @@ export async function GET(request: Request) {
     // First, get SM names from hierarchy API
     let allSMsFromHierarchy: string[] = [];
     try {
-      const hierarchyResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/hierarchy`);
+      // FIXED: Use the current request's host to construct the URL
+      const requestUrl = new URL(request.url);
+      const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+      
+      const hierarchyResponse = await fetch(`${baseUrl}/api/hierarchy`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (hierarchyResponse.ok) {
         const hierarchyData = await hierarchyResponse.json();
         allSMsFromHierarchy = hierarchyData.sms.map((sm: any) => sm.name);
