@@ -862,7 +862,7 @@ export default function IssuesPage() {
             <span className="zap">⚡</span>
           </div>
 
-          <nav className="nav">
+           <nav className="nav">
   <a className="nav-item" onClick={() => router.push('/')}>
     <span className="i">🏠</span> Dashboard
   </a>
@@ -878,6 +878,14 @@ export default function IssuesPage() {
   <a className="nav-item" onClick={() => router.push('/opportunities')}>
     <span className="i">🚀</span> Opportunities
   </a>
+  <a className="nav-item" onClick={() => router.push('/daily-tasks')}>
+  <span className="i">📋</span> Daily Tasks
+</a>
+
+<a className="nav-item" onClick={() => router.push('/dietitian-scorecard')}>
+  <span className="i">📊</span> Dietitian Scorecard
+</a>
+
   <a className="nav-item">
     <span className="i">📊</span> Analytics
   </a>
@@ -925,6 +933,41 @@ export default function IssuesPage() {
   <a className="nav-item" onClick={() => router.push('/opportunities')}>
     <span className="i">🚀</span> Opportunities
   </a>
+  <a className="nav-item" onClick={() => router.push('/daily-tasks')}>
+  <span className="i">📋</span> Daily Tasks
+</a>
+
+<a className="nav-item" onClick={() => router.push('/dietitian-scorecard')}>
+  <span className="i">📊</span> Dietitian Scorecard
+</a>
+
+  <a className="nav-item">
+    <span className="i">📊</span> Analytics
+  </a>
+</nav> <nav className="nav">
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">🏠</span> Dashboard
+  </a>
+  <a className="nav-item" onClick={() => router.push('/')}>
+    <span className="i">👥</span> Revenue
+  </a>
+  <a className="nav-item" onClick={() => router.push('/quality')}>
+    <span className="i">✅</span> Quality
+  </a>
+  <a className="nav-item" onClick={() => router.push('/issues')}>
+    <span className="i">🛠️</span> Issues
+  </a>
+  <a className="nav-item" onClick={() => router.push('/opportunities')}>
+    <span className="i">🚀</span> Opportunities
+  </a>
+  <a className="nav-item" onClick={() => router.push('/daily-tasks')}>
+  <span className="i">📋</span> Daily Tasks
+</a>
+
+<a className="nav-item" onClick={() => router.push('/dietitian-scorecard')}>
+  <span className="i">📊</span> Dietitian Scorecard
+</a>
+
   <a className="nav-item">
     <span className="i">📊</span> Analytics
   </a>
@@ -969,7 +1012,7 @@ export default function IssuesPage() {
           <span className="zap">⚡</span>
         </div>
 
-        <nav className="nav">
+         <nav className="nav">
   <a className="nav-item" onClick={() => router.push('/')}>
     <span className="i">🏠</span> Dashboard
   </a>
@@ -985,6 +1028,14 @@ export default function IssuesPage() {
   <a className="nav-item" onClick={() => router.push('/opportunities')}>
     <span className="i">🚀</span> Opportunities
   </a>
+  <a className="nav-item" onClick={() => router.push('/daily-tasks')}>
+  <span className="i">📋</span> Daily Tasks
+</a>
+
+<a className="nav-item" onClick={() => router.push('/dietitian-scorecard')}>
+  <span className="i">📊</span> Dietitian Scorecard
+</a>
+
   <a className="nav-item">
     <span className="i">📊</span> Analytics
   </a>

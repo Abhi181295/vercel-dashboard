@@ -861,7 +861,7 @@ function DashboardPage() {
             <span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span>
             <span className="zap">⚡</span>
           </div>
-          <nav className="nav">
+           <nav className="nav">
   <a className="nav-item" onClick={() => router.push('/')}>
     <span className="i">🏠</span> Dashboard
   </a>
@@ -877,6 +877,14 @@ function DashboardPage() {
   <a className="nav-item" onClick={() => router.push('/opportunities')}>
     <span className="i">🚀</span> Opportunities
   </a>
+  <a className="nav-item" onClick={() => router.push('/daily-tasks')}>
+  <span className="i">📋</span> Daily Tasks
+</a>
+
+<a className="nav-item" onClick={() => router.push('/dietitian-scorecard')}>
+  <span className="i">📊</span> Dietitian Scorecard
+</a>
+
   <a className="nav-item">
     <span className="i">📊</span> Analytics
   </a>
@@ -903,7 +911,7 @@ function DashboardPage() {
             <span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span>
             <span className="zap">⚡</span>
           </div>
-          <nav className="nav">
+           <nav className="nav">
   <a className="nav-item" onClick={() => router.push('/')}>
     <span className="i">🏠</span> Dashboard
   </a>
@@ -919,6 +927,14 @@ function DashboardPage() {
   <a className="nav-item" onClick={() => router.push('/opportunities')}>
     <span className="i">🚀</span> Opportunities
   </a>
+  <a className="nav-item" onClick={() => router.push('/daily-tasks')}>
+  <span className="i">📋</span> Daily Tasks
+</a>
+
+<a className="nav-item" onClick={() => router.push('/dietitian-scorecard')}>
+  <span className="i">📊</span> Dietitian Scorecard
+</a>
+
   <a className="nav-item">
     <span className="i">📊</span> Analytics
   </a>
@@ -950,7 +966,7 @@ function DashboardPage() {
           <span className="brand-main">Fitelo</span> <span className="brand-sub">SM Dashboard</span>
           <span className="zap">⚡</span>
         </div>
-        <nav className="nav">
+         <nav className="nav">
   <a className="nav-item" onClick={() => router.push('/')}>
     <span className="i">🏠</span> Dashboard
   </a>
@@ -966,6 +982,14 @@ function DashboardPage() {
   <a className="nav-item" onClick={() => router.push('/opportunities')}>
     <span className="i">🚀</span> Opportunities
   </a>
+  <a className="nav-item" onClick={() => router.push('/daily-tasks')}>
+  <span className="i">📋</span> Daily Tasks
+</a>
+
+<a className="nav-item" onClick={() => router.push('/dietitian-scorecard')}>
+  <span className="i">📊</span> Dietitian Scorecard
+</a>
+
   <a className="nav-item">
     <span className="i">📊</span> Analytics
   </a>
