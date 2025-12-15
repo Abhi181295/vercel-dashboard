@@ -149,6 +149,7 @@ interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+	  ezWeightLeads: number; // ADD THIS LINE
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -168,6 +169,7 @@ interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+	  ezWeightLeads: number; // ADD THIS LINE
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -187,6 +189,7 @@ interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+	  ezWeightLeads: number; // ADD THIS LINE
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -2892,6 +2895,7 @@ function MetricsModal({ isOpen, onClose, userName, userRole, period, revType }: 
 
   const leadsBreakdown = rawData ? {
     totalLeads: rawData.leads,
+	ezWeightLeads: rawData.ezWeightLeads, // ADD THIS LINE
     referralLeads: rawData.referralLeads,
     reactiveLeads: rawData.reactiveLeads,
     renewalLeads: rawData.renewalLeads,
@@ -3305,6 +3309,7 @@ function LeadsTooltip({
 }: { 
   leadsData: {
     totalLeads: number;
+    ezWeightLeads: number; // ADD THIS LINE
     referralLeads: number;
     reactiveLeads: number;
     renewalLeads: number;
@@ -3320,7 +3325,7 @@ function LeadsTooltip({
       <div className="tooltip-content">
         <div className="leads-row">
           <span className="leads-label">Total Leads:</span>
-          <span className="leads-value">{leadsData.totalLeads}</span>
+          <span className="leads-value">{leadsData.totalLeads} ({leadsData.ezWeightLeads} EZWeight leads)</span>
         </div>
         <div className="leads-row">
           <span className="leads-label">Referral Leads:</span>

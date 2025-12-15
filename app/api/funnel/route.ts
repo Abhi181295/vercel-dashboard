@@ -1,5 +1,3 @@
-// app/api/funnel/route.ts - CORRECTED UNIQUE CALLS COLUMNS
-
 import { NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
 
@@ -91,6 +89,7 @@ export interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+      ezWeightLeads: number; // ADDED: For Yesterday (column BM)
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -111,6 +110,7 @@ export interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+      ezWeightLeads: number; // ADDED: For WTD (column BN)
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -131,6 +131,7 @@ export interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+      ezWeightLeads: number; // ADDED: For MTD (column BO)
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -194,7 +195,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const funnelData = await getSheetData('Dietitian Funnel!A2:BL');
+    // UPDATED: Extended to column BO (BM, BN, BO are at indices 64, 65, 66)
+    const funnelData = await getSheetData('Dietitian Funnel!A2:BO');
     const { daysWTD, daysMTD } = calculateDays();
 
     const roleColumns = {
@@ -229,6 +231,7 @@ export async function GET(request: Request) {
         counsellingConnected: 0, 
         followupConnected: 0,
         leads: 0, 
+        ezWeightLeads: 0, // ADDED
         totalLinks: 0, 
         salesLinks: 0, 
         conv: 0, 
@@ -249,6 +252,7 @@ export async function GET(request: Request) {
         counsellingConnected: 0, 
         followupConnected: 0,
         leads: 0, 
+        ezWeightLeads: 0, // ADDED
         totalLinks: 0, 
         salesLinks: 0, 
         conv: 0, 
@@ -269,6 +273,7 @@ export async function GET(request: Request) {
         counsellingConnected: 0, 
         followupConnected: 0,
         leads: 0, 
+        ezWeightLeads: 0, // ADDED
         totalLinks: 0, 
         salesLinks: 0, 
         conv: 0, 
@@ -338,6 +343,7 @@ export async function GET(request: Request) {
             tallies.ytd.uniqueConnected += parseNumber(row[61]); // BJ (62-1 = 61)
             tallies.ytd.talktime += parseNumber(row[12]) / 3600; // M
             tallies.ytd.leads += parseNumber(row[13]); // N
+            tallies.ytd.ezWeightLeads += parseNumber(row[64]); // BM (65-1 = 64) - CORRECTED
             tallies.ytd.totalLinks += parseNumber(row[14]) + parseNumber(row[16]); // O + Q
             tallies.ytd.salesLinks += parseNumber(row[16]); // Q
             tallies.ytd.conv += parseNumber(row[15]) + parseNumber(row[17]); // P + R
@@ -350,6 +356,7 @@ export async function GET(request: Request) {
             tallies.wtd.uniqueConnected += parseNumber(row[62]); // BK (63-1 = 62)
             tallies.wtd.talktime += parseNumber(row[20]) / 3600; // U
             tallies.wtd.leads += parseNumber(row[21]); // V
+            tallies.wtd.ezWeightLeads += parseNumber(row[65]); // BN (66-1 = 65) - CORRECTED
             tallies.wtd.totalLinks += parseNumber(row[22]) + parseNumber(row[24]); // W + Y
             tallies.wtd.salesLinks += parseNumber(row[24]); // Y
             tallies.wtd.conv += parseNumber(row[23]) + parseNumber(row[25]); // X + Z
@@ -362,6 +369,7 @@ export async function GET(request: Request) {
             tallies.mtd.uniqueConnected += parseNumber(row[63]); // BL (64-1 = 63)
             tallies.mtd.talktime += parseNumber(row[28]) / 3600; // AC
             tallies.mtd.leads += parseNumber(row[29]); // AD
+            tallies.mtd.ezWeightLeads += parseNumber(row[66]); // BO (67-1 = 66) - CORRECTED
             tallies.mtd.totalLinks += parseNumber(row[30]) + parseNumber(row[32]); // AE + AG
             tallies.mtd.salesLinks += parseNumber(row[32]); // AG
             tallies.mtd.conv += parseNumber(row[31]) + parseNumber(row[33]); // AF + AH

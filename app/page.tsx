@@ -376,6 +376,7 @@ function LeadsTooltip({
 }: { 
   leadsData: {
     totalLeads: number;
+    ezWeightLeads: number; // ADDED
     referralLeads: number;
     reactiveLeads: number;
     renewalLeads: number;
@@ -391,7 +392,7 @@ function LeadsTooltip({
       <div className="tooltip-content">
         <div className="leads-row">
           <span className="leads-label">Total Leads:</span>
-          <span className="leads-value">{leadsData.totalLeads}</span>
+          <span className="leads-value">{leadsData.totalLeads} ({leadsData.ezWeightLeads} EZWeight leads)</span>
         </div>
         <div className="leads-row">
           <span className="leads-label">Referral Leads:</span>
@@ -493,6 +494,7 @@ function MetricsModal({
 
   const leadsBreakdown = rawData ? {
     totalLeads: rawData.leads,
+	ezWeightLeads: rawData.ezWeightLeads, // ADDED
     referralLeads: rawData.referralLeads,
     reactiveLeads: rawData.reactiveLeads,
     renewalLeads: rawData.renewalLeads,
