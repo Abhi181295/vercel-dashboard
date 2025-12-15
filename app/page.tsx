@@ -28,6 +28,7 @@ interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+	  ezWeightLeads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -48,6 +49,7 @@ interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+	  ezWeightLeads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
@@ -68,6 +70,7 @@ interface FunnelData {
       counsellingConnected: number;
       followupConnected: number;
       leads: number;
+	  ezWeightLeads: number;
       totalLinks: number;
       salesLinks: number;
       conv: number;
