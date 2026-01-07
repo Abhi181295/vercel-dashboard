@@ -69,22 +69,8 @@ export interface DietitianGap {
 
 export async function GET(request: Request) {
   try {
-    // Fetch data from both sheets - extended range to include commerce columns (A to T)
-    const [gapsData, keyMappingData] = await Promise.all([
-      getSheetData('Dietitian Gaps!A2:T'), // Columns A to T (now includes commerce columns)
-      getSheetData('Key Mapping!C2:C') // Column C only, starting from row 2
-    ]);
-
-    // Create a Set of names to exclude from Key Mapping sheet
-    const excludedNames = new Set<string>();
-    if (keyMappingData && keyMappingData.length > 0) {
-      keyMappingData.forEach((row: string[]) => {
-        const name = row[0]?.trim();
-        if (name) {
-          excludedNames.add(name.toLowerCase());
-        }
-      });
-    }
+    // Fetch data from ONLY the gaps sheet - no need for Key Mapping sheet
+    const gapsData = await getSheetData('Dietitian Gaps!A2:T'); // Columns A to T (now includes commerce columns)
 
     const dietitianGaps: DietitianGap[] = [];
 
@@ -110,25 +96,17 @@ export async function GET(request: Request) {
       // NEW: MTD Zero Sales flag - Sales Target > 0 AND Sales Achieved = 0
       const hasMtdZeroSales = salesTarget > 0 && salesAchieved === 0;
 
-      // ✅ Exclusion conditions (OR)
-      const excludeFromKeyMapping = dietitianName && excludedNames.has(dietitianName.toLowerCase());
-      const excludeFlag = (row[12] || '').trim().toUpperCase(); // Column M
-      const excludeFromColumnM = excludeFlag === 'YES';
-      
-      const shouldExcludeDietitian = excludeFromKeyMapping || excludeFromColumnM;
-
       // ✅ Additional condition - Column D (daysSinceJoining) must be >= 30
       const meetsDaysSinceJoiningCriteria = daysSinceJoining >= 30;
 
       // ✅ Include only if:
-      // - Not excluded AND 
       // - daysSinceJoining >= 30
       // AND at least one of the revenue types has consecutiveZeroDays >= 3
       const hasSalesIssue = consecutiveZeroDays >= 3;
       const hasCommerceIssue = commerceConsecutiveZeroDays >= 3;
       const hasAnyIssue = hasSalesIssue || hasCommerceIssue;
 
-      if (dietitianName && hasAnyIssue && !shouldExcludeDietitian && meetsDaysSinceJoiningCriteria) {
+      if (dietitianName && hasAnyIssue && meetsDaysSinceJoiningCriteria) {
         dietitianGaps.push({
           dietitianName,
           smName: smName || 'Not Assigned',
